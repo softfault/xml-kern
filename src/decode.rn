@@ -1,4 +1,4 @@
-use base.coll.String;
+use base.coll.{String, string};
 use base.mem.alloc.Allocator;
 
 use ..{DecodeError, DecodeErrorKind, EncodedText};
@@ -183,7 +183,7 @@ impl EncodedText {
 
     pub fn clone_decoded(alloc: &mut Allocator) String!DecodeError {
         let size = self.decoded_size().!;
-        let mut out = String.{};
+        let mut out = string();
         if (!out..&.reserve(alloc, size)) {
             return .{ Err: decode_err(.OutOfMemory, 0) };
         }

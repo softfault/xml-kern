@@ -1,4 +1,4 @@
-use base.coll.String;
+use base.coll.{String, range, string};
 use base.mem.alloc.gpa;
 use sys.mem.page;
 use std.fs;
@@ -11,17 +11,26 @@ const DEFAULT_INPUT_LABEL = "generated-vulkan-like";
 const SAMPLE_REPETITIONS = usize.{900};
 
 const HEADER =
-    "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<registry>\n  <types>\n";
+    \\<?xml version="1.0" encoding="utf-8"?>
+    \\<registry>
+    \\  <types>
+;
 const TYPE_ROW =
-    "    <type category=\"struct\" name=\"VkExample\" returnedonly=\"false\"><member><type>uint32_t</type> <name>flags</name></member></type>\n";
+    \\    <type category="struct" name="VkExample" returnedonly="false"><member><type>uint32_t</type> <name>flags</name></member></type>
+;
 const COMMAND_ROW =
-    "    <command successcodes=\"VK_SUCCESS\" errorcodes=\"VK_ERROR_UNKNOWN\"><proto><type>VkResult</type> <name>vkExample</name></proto><param><type>VkDevice</type> <name>device</name></param></command>\n";
+    \\    <command successcodes="VK_SUCCESS" errorcodes="VK_ERROR_UNKNOWN"><proto><type>VkResult</type> <name>vkExample</name></proto><param><type>VkDevice</type> <name>device</name></param></command>
+;
 const FEATURE_ROW =
-    "    <feature api=\"vulkan\" name=\"VK_VERSION_1_3\" number=\"1.3\"><require><command name=\"vkExample\"/><type name=\"VkExample\"/></require></feature>\n";
+    \\    <feature api="vulkan" name="VK_VERSION_1_3" number="1.3"><require><command name="vkExample"/><type name="VkExample"/></require></feature>
+;
 const EXTENSION_ROW =
-    "    <extension name=\"VK_KHR_example\" number=\"1\" supported=\"vulkan\"><require><enum name=\"VK_KHR_EXAMPLE_SPEC_VERSION\" value=\"1\"/></require></extension>\n";
+    \\    <extension name="VK_KHR_example" number="1" supported="vulkan"><require><enum name="VK_KHR_EXAMPLE_SPEC_VERSION" value="1"/></require></extension>
+;
 const FOOTER =
-    "  </types>\n</registry>\n";
+    \\  </types>
+    \\</registry>
+;
 
 const DECODE_WITH_REFS =
     "alpha &amp; beta &lt; gamma &#x2603; &quot;quoted&quot; &#65;";
@@ -46,14 +55,11 @@ impl &mut BenchInput {
 fn parse_iterations(text: &[u8]) usize {
     if (#text == 0) return usize.{0};
     let mut value = usize.{0};
-    let mut i = usize.{0};
-    while (i < #text) {
-        let byte = text.[i];
+    for (byte: text.iter()) {
         if (byte < b'0' or byte > b'9') return usize.{0};
         let next = value * 10 + (byte - b'0') as usize;
         if (next < value) return usize.{0};
         value = next;
-        i += 1;
     }
     return value;
 }
@@ -82,25 +88,23 @@ fn print_stats(
 }
 
 fn build_sample(alloc: &mut base.mem.alloc.Allocator) ?String {
-    let mut out = String.{};
+    let mut out = string();
     if (!out..&.reserve(alloc, #HEADER + #FOOTER + SAMPLE_REPETITIONS * (#TYPE_ROW + #COMMAND_ROW + #FEATURE_ROW + #EXTENSION_ROW))) {
         return .None;
     }
     if (!out..&.push_str(alloc, HEADER)) return .None;
-    let mut i = usize.{0};
-    while (i < SAMPLE_REPETITIONS) {
+    for (_: range[usize](0, SAMPLE_REPETITIONS)) {
         if (!out..&.push_str(alloc, TYPE_ROW)) return .None;
         if (!out..&.push_str(alloc, COMMAND_ROW)) return .None;
         if (!out..&.push_str(alloc, FEATURE_ROW)) return .None;
         if (!out..&.push_str(alloc, EXTENSION_ROW)) return .None;
-        i += 1;
     }
     if (!out..&.push_str(alloc, FOOTER)) return .None;
     return .{ Some: out };
 }
 
 fn make_input(alloc: &mut base.mem.alloc.Allocator, storage: String, label_text: &[u8]) ?BenchInput {
-    let mut label_storage = String.{};
+    let mut label_storage = string();
     if (!label_storage..&.push_str(alloc, label_text)) {
         return .None;
     }
@@ -140,8 +144,7 @@ fn load_input(alloc: &mut base.mem.alloc.Allocator, path: ?&[u8]) BenchInput!fs.
 fn bench_parse(iterations: usize, input_label: &[u8], text: &[u8]) bool {
     let mut sink = usize.{0};
     let start = time.monotonic().now();
-    let mut i = usize.{0};
-    while (i < iterations) {
+    for (_: range[usize](0, iterations)) {
         let mut r = reader(text);
         while (true) {
             let .{ Ok: next } = r..&.next() else return false;
@@ -158,7 +161,6 @@ fn bench_parse(iterations: usize, input_label: &[u8], text: &[u8]) bool {
                 .{ Doctype: value } => #value.raw,
             };
         }
-        i += 1;
     }
     print_stats("parse", input_label, #text, iterations, start.elapsed(), sink);
     return true;
@@ -167,12 +169,10 @@ fn bench_parse(iterations: usize, input_label: &[u8], text: &[u8]) bool {
 fn bench_validate(iterations: usize, input_label: &[u8], text: &[u8], alloc: &mut base.mem.alloc.Allocator) bool {
     let mut sink = usize.{0};
     let start = time.monotonic().now();
-    let mut i = usize.{0};
-    while (i < iterations) {
+    for (_: range[usize](0, iterations)) {
         let mut r = reader(text);
         let .{ Ok: _ } = r..&.validate(alloc) else return false;
         sink += r.&.offset();
-        i += 1;
     }
     print_stats("validate", input_label, #text, iterations, start.elapsed(), sink);
     return true;
@@ -185,11 +185,9 @@ fn bench_decode(iterations: usize, label: &[u8], text: &[u8]) bool {
     if (size > #out) return false;
     let mut sink = usize.{0};
     let start = time.monotonic().now();
-    let mut i = usize.{0};
-    while (i < iterations) {
+    for (_: range[usize](0, iterations)) {
         let .{ Ok: written } = encoded.write_decoded(out..&[0 .. #out]) else return false;
         sink += written;
-        i += 1;
     }
     print_stats(label, "inline", #text, iterations, start.elapsed(), sink);
     return true;

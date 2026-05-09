@@ -4,6 +4,7 @@
 //! document models can be built on top without changing the tokenizer API.
 
 use base.io.{Formatable, Write};
+use base.coll.List;
 
 mod bytes;
 mod decode;
@@ -202,7 +203,7 @@ pub struct IndexedNode {
 };
 
 pub struct DocumentIndex {
-    pub/ nodes: base.coll.List[IndexedNode] = base.coll.List[IndexedNode].{},
+    pub/ nodes: List[IndexedNode] = List[IndexedNode].{},
     pub/ root_index: ?usize = .None,
 };
 
@@ -219,15 +220,13 @@ pub fn locate(source: &[u8], offset: usize) Location {
     let mut line = 1;
     let mut column = 1;
     let limit = if (offset < #source) offset else #source;
-    let mut i = 0;
-    while (i < limit) {
-        if (source.[i] == b'\n') {
+    for (byte: source.&[0 .. limit].iter()) {
+        if (byte == b'\n') {
             line += 1;
             column = 1;
         } else {
             column += 1;
         }
-        i += 1;
     }
     return .{ offset, line, column };
 }

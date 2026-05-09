@@ -1,4 +1,4 @@
-use base.coll.List;
+use base.coll.{List, list};
 use base.mem.alloc.Allocator;
 
 use ..{
@@ -166,7 +166,7 @@ impl &mut Reader {
 
         let mut scan = reader(self.source());
         let mut out = DocumentIndex.{};
-        let stack = List[usize].{}..&;
+        let stack = list[usize]()..&;
         defer stack.deinit(alloc);
 
         while (true) {

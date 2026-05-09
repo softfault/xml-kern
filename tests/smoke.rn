@@ -1,4 +1,5 @@
 use base.mem.alloc.gpa;
+use base.coll.range;
 use base.test;
 use std.io;
 use sys.mem.page;
@@ -11,18 +12,14 @@ fn expect_next(r: &mut xml.Reader) Event {
 
 fn expect_prefix_errors(source: &[u8], min_len: usize, complete_events: usize) void {
     let t = test.report(io.stderr())..&;
-    let mut split = min_len;
-    while (split < #source) {
+    for (split: range[usize](min_len, #source)) {
         let mut r = reader(source.&[0 .. split]);
         _ = r..&.next().should_err().sum(@loc(), t);
-        split += 1;
     }
 
     let mut complete = reader(source);
-    let mut seen = 0;
-    while (seen < complete_events) {
+    for (_: range[usize](0, complete_events)) {
         _ = complete..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
-        seen += 1;
     }
 }
 

@@ -1,4 +1,4 @@
-use base.coll.{List, Map};
+use base.coll.{list, map};
 use base.mem.alloc.Allocator;
 
 use ..{Element, Error, Event, Name, Reader, ValidateError, ValidateErrorKind};
@@ -12,19 +12,16 @@ fn lift_parse(err: Error) ValidateError {
 }
 
 fn is_ignorable_text(raw: &[u8]) bool {
-    let mut i = 0;
-    while (i < #raw) {
-        let byte = raw.[i];
+    for (byte: raw.iter()) {
         if (!(byte == b' ' or byte == b'\n' or byte == b'\r' or byte == b'\t')) {
             return false;
         }
-        i += 1;
     }
     return true;
 }
 
 fn has_duplicate_attributes(element: Element, alloc: &mut Allocator, event_start: usize) bool!ValidateError {
-    let seen = Map[&[u8], bool].{}..&;
+    let seen = map[&[u8], bool]()..&;
     defer seen.deinit(alloc);
     let mut cursor = element.attributes();
     while (true) {
@@ -42,7 +39,7 @@ fn has_duplicate_attributes(element: Element, alloc: &mut Allocator, event_start
 
 impl &mut Reader {
     pub fn validate(alloc: &mut Allocator) void!ValidateError {
-        let stack = List[Name].{}..&;
+        let stack = list[Name]()..&;
         defer stack.deinit(alloc);
         let mut saw_root = false;
         let mut closed_root = false;

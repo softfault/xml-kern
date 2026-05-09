@@ -59,13 +59,10 @@ impl[T] &mut MappedReader[T] {
 }
 
 fn is_ws_text(raw: &[u8]) bool {
-    let mut i = 0;
-    while (i < #raw) {
-        let byte = raw.[i];
+    for (byte: raw.iter()) {
         if (!(byte == b' ' or byte == b'\n' or byte == b'\r' or byte == b'\t')) {
             return false;
         }
-        i += 1;
     }
     return true;
 }

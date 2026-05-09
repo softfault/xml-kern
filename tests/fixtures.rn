@@ -5,7 +5,28 @@ use sys.mem.page;
 use xml.{Event, reader};
 
 const FIXTURE =
-    "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<!DOCTYPE catalog [ <!ENTITY copy \"Copyright\"> ]>\n<catalog xmlns=\"urn:catalog\" xmlns:x=\"urn:item\" generated=\"true\">\n  <!-- inventory fixture -->\n  <?fixture stage=\"large\"?>\n  <x:item id=\"bk001\" available=\"yes\">\n    <title>XML Developer Guide</title>\n    <author>Gambardella, Matthew</author>\n    <summary><![CDATA[Parser coverage with <tags>, & entities, and ] ]> text.]]></summary>\n  </x:item>\n  <x:item id=\"bk002\" available=\"no\">\n    <title>Midnight Rain</title>\n    <author>Ralls, Kim</author>\n    <summary>Escaped &amp; decoded later &#x2603;</summary>\n  </x:item>\n  <group name=\"tools\">\n    <tool name=\"reader\"/>\n    <tool name=\"validator\"/>\n    <tool name=\"namespace-view\"/>\n  </group>\n</catalog>";
+    \\<?xml version="1.0" encoding="utf-8"?>
+    \\<!DOCTYPE catalog [ <!ENTITY copy "Copyright"> ]>
+    \\<catalog xmlns="urn:catalog" xmlns:x="urn:item" generated="true">
+    \\  <!-- inventory fixture -->
+    \\  <?fixture stage="large"?>
+    \\  <x:item id="bk001" available="yes">
+    \\    <title>XML Developer Guide</title>
+    \\    <author>Gambardella, Matthew</author>
+    \\    <summary><![CDATA[Parser coverage with <tags>, & entities, and ] ]> text.]]></summary>
+    \\  </x:item>
+    \\  <x:item id="bk002" available="no">
+    \\    <title>Midnight Rain</title>
+    \\    <author>Ralls, Kim</author>
+    \\    <summary>Escaped &amp; decoded later &#x2603;</summary>
+    \\  </x:item>
+    \\  <group name="tools">
+    \\    <tool name="reader"/>
+    \\    <tool name="validator"/>
+    \\    <tool name="namespace-view"/>
+    \\  </group>
+    \\</catalog>
+;
 
 struct Counts {
     declarations: usize = 0,
@@ -21,33 +42,32 @@ struct Counts {
     namespace_decls: usize = 0,
 };
 
-fn count_event(counts: &mut Counts, event: Event) void {
+fn count_namespace_attrs(element: xml.Element) usize {
     let t = test.report(io.stderr())..&;
+    let mut total = usize.{0};
+    let mut attrs = element.attributes();
+    while (true) {
+        let next = attrs..&.next().should_ok().sum(@loc(), t);
+        let .{ Some: attr } = next else break;
+        if (attr.&.is_namespace_declaration()) {
+            total += 1;
+        }
+    }
+    return total;
+}
+
+fn count_event(counts: &mut Counts, event: Event) void {
     match (event) {
         .{ Declaration: _ } => counts.declarations += 1,
         .{ Doctype: _ } => counts.doctypes += 1,
         .{ Start: element } => {
             counts.starts += 1;
             if (element.name.eq("x:item")) counts.items += 1;
-            let mut attrs = element.attributes();
-            while (true) {
-                let next = attrs..&.next().should_ok().sum(@loc(), t);
-                let .{ Some: attr } = next else break;
-                if (attr.&.is_namespace_declaration()) {
-                    counts.namespace_decls += 1;
-                }
-            }
+            counts.namespace_decls += count_namespace_attrs(element);
         },
         .{ Empty: element } => {
             counts.empties += 1;
-            let mut attrs = element.attributes();
-            while (true) {
-                let next = attrs..&.next().should_ok().sum(@loc(), t);
-                let .{ Some: attr } = next else break;
-                if (attr.&.is_namespace_declaration()) {
-                    counts.namespace_decls += 1;
-                }
-            }
+            counts.namespace_decls += count_namespace_attrs(element);
         },
         .{ End: _ } => counts.ends += 1,
         .{ Text: text } => if (#text.raw > 0) counts.text += 1,

@@ -11,13 +11,10 @@ fn lift_parse(err: Error) ExpectError {
 fn is_ignorable(event: Event) bool {
     match (event) {
         .{ Text: text } => {
-            let mut i = 0;
-            while (i < #text.raw) {
-                let byte = text.raw.[i];
+            for (byte: text.raw.iter()) {
                 if (!(byte == b' ' or byte == b'\n' or byte == b'\r' or byte == b'\t')) {
                     return false;
                 }
-                i += 1;
             }
             return true;
         },

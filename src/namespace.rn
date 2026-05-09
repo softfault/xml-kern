@@ -1,9 +1,9 @@
 use ..{Attribute, Element, EncodedText, Name, NamespaceBinding, NamespaceDeclaration, QualifiedName};
 
 fn colon_at(raw: &[u8]) ?usize {
-    let mut i = 0;
-    while (i < #raw) {
-        if (raw.[i] == b':') {
+    let mut i = usize.{0};
+    for (byte: raw.iter()) {
+        if (byte == b':') {
             return .{ Some: i };
         }
         i += 1;
