@@ -92,17 +92,17 @@ pub struct Attribute {
 };
 
 pub struct AttributeCursor {
-    pub raw: &[u8],
-    pub offset_base: usize,
-    pub index: usize = 0,
-    pub done: bool = false,
+    pub/ raw: &[u8],
+    pub/ offset_base: usize,
+    pub/ index: usize = 0,
+    pub/ done: bool = false,
 };
 
 pub struct Element {
     pub name: Name,
     pub raw: &[u8],
-    pub attributes_raw: &[u8],
-    pub attributes_offset: usize,
+    pub/ attributes_raw: &[u8],
+    pub/ attributes_offset: usize,
 };
 
 pub struct ProcessingInstruction {
@@ -124,10 +124,10 @@ pub enum Event {
 };
 
 pub struct Reader {
-    pub source: &[u8],
-    pub index: usize = 0,
-    pub started: bool = false,
-    pub done: bool = false,
+    pub/ source: &[u8],
+    pub/ index: usize = 0,
+    pub/ started: bool = false,
+    pub/ done: bool = false,
 };
 
 pub fn reader(source: &[u8]) Reader {

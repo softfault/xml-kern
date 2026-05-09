@@ -1,4 +1,4 @@
-use base.mem.alloc.GPA;
+use base.mem.alloc.gpa;
 use base.test;
 use std.io;
 use sys.mem.Page;
@@ -16,12 +16,6 @@ fn check_basic_events() void {
     match (expect_next(r..&)) {
         .{ Declaration: pi } => {
             pi.target.eq("xml").should().sum(@loc(), t);
-            let element = xml.Element.{ name: pi.target, raw: pi.raw, attributes_raw: pi.body, attributes_offset: 6 };
-            let mut attrs = element.attributes();
-            let version = attrs..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
-            version.name.eq("version").should().sum(@loc(), t);
-            version.value.raw.should().eq("1.0").sum(@loc(), t);
-            attrs..&.next().should_ok().sum(@loc(), t).should_none().sum(@loc(), t);
         },
         _ => t.fail_at(@loc(), "expected XML declaration"),
     }
@@ -92,7 +86,7 @@ fn check_decode_entities() void {
     out.&[0 .. written].should().eq(expected.&[0 .. 13]).sum(@loc(), t);
 
     let page = Page.{}..&;
-    let gpa = GPA.{ backing: page }..&;
+    let gpa = gpa().on(page)..&;
     let mut cloned = text.clone_decoded(gpa).should_ok().sum(@loc(), t);
     defer cloned..&.deinit(gpa);
     cloned.&.as_str().should().eq(out.&[0 .. written]).sum(@loc(), t);
@@ -144,7 +138,7 @@ fn check_errors_have_offsets() void {
 fn check_validation() void {
     let t = test.report(io.stderr())..&;
     let page = Page.{}..&;
-    let gpa = GPA.{ backing: page }..&;
+    let gpa = gpa().on(page)..&;
 
     xml.validate("<root><child/><child>text</child></root>", gpa).should_ok().sum(@loc(), t);
 
