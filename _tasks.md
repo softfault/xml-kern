@@ -30,7 +30,7 @@
 - [x] Tests for validation failures and offsets.
 - [x] Tests for expect combinators.
 - [x] Add a broad malformed-input matrix.
-- [ ] Add generated split-position tests for EOF handling.
+- [x] Add generated split-position tests for EOF handling.
 - [ ] Add larger fixture tests.
 - [ ] Add round-trip tests once writer support exists.
 

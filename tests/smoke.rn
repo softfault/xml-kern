@@ -9,6 +9,23 @@ fn expect_next(r: &mut xml.Reader) Event {
     return r.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
 }
 
+fn expect_prefix_errors(source: &[u8], min_len: usize, complete_events: usize) void {
+    let t = test.report(io.stderr())..&;
+    let mut split = min_len;
+    while (split < #source) {
+        let mut r = reader(source.&[0 .. split]);
+        _ = r..&.next().should_err().sum(@loc(), t);
+        split += 1;
+    }
+
+    let mut complete = reader(source);
+    let mut seen = 0;
+    while (seen < complete_events) {
+        _ = complete..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
+        seen += 1;
+    }
+}
+
 fn check_basic_events() void {
     let t = test.report(io.stderr())..&;
     let mut r = reader("<?xml version=\"1.0\"?><root id=\"7\" flag='yes'>hello &amp; <![CDATA[raw <>&]]><!--note--><?go now?><empty a=\"b\"/></root>");
@@ -356,6 +373,44 @@ fn check_namespace_views() void {
     }
 }
 
+fn check_eof_split_positions() void {
+    let t = test.report(io.stderr())..&;
+
+    expect_prefix_errors("<root>", 1, 1);
+    expect_prefix_errors("<root/>", 1, 1);
+    expect_prefix_errors("</root>", 2, 1);
+    expect_prefix_errors("<root a=\"value\">", 1, 1);
+    expect_prefix_errors("<root a='value'>", 1, 1);
+    expect_prefix_errors("<!--body-->", 4, 1);
+    expect_prefix_errors("<![CDATA[body]]>", 9, 1);
+    expect_prefix_errors("<?go body?>", 2, 1);
+    expect_prefix_errors("<?xml version=\"1.0\"?>", 2, 1);
+    expect_prefix_errors("<!DOCTYPE note [ <!ENTITY writer \"Donald Duck\"> ]>", 9, 1);
+
+    let mut attr_owner = reader("<root a=\"value\" b='two'/>");
+    let element = match (expect_next(attr_owner..&)) {
+        .{ Empty: root } => root,
+        _ => {
+            t.fail_at(@loc(), "expected empty element");
+        },
+    };
+    let mut attrs = element.attributes();
+    _ = attrs..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
+    _ = attrs..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
+    attrs..&.next().should_ok().sum(@loc(), t).should_none().sum(@loc(), t);
+
+    let mut bad_attr_owner = reader("<root a value>");
+    let bad = match (expect_next(bad_attr_owner..&)) {
+        .{ Start: root } => root,
+        _ => {
+            t.fail_at(@loc(), "expected start element with raw attribute bytes");
+        },
+    };
+    let mut bad_attrs = bad.attributes();
+    let attr_err = bad_attrs..&.next().should_err().sum(@loc(), t);
+    attr_err.kind.should().eq(ErrorKind.InvalidAttribute).sum(@loc(), t);
+}
+
 fn main() i32 {
     check_basic_events();
     check_decode_entities();
@@ -365,5 +420,6 @@ fn main() i32 {
     check_expect_combinators();
     check_stream_combinators();
     check_namespace_views();
+    check_eof_split_positions();
     return 0;
 }
