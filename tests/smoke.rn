@@ -406,6 +406,18 @@ fn check_borrowed_index() void {
     index.count_descendants_named(root_id, "leaf").should().eq(1).sum(@loc(), t);
 }
 
+fn check_render_round_trip() void {
+    let t = test.report(io.stderr())..&;
+    let page = page()..&;
+    let gpa = gpa().on(page)..&;
+    let source = "<?xml version=\"1.0\"?><root a=\"1\"><child/>text<![CDATA[raw]]><!--note--><?go now?></root>";
+    let mut out = base.coll.string();
+    defer out..&.deinit(gpa);
+    let writer = out..&.writer(gpa)..&;
+    xml.render_document(source, writer).should_ok().sum(@loc(), t);
+    out.&.as_str().should().eq(source).sum(@loc(), t);
+}
+
 fn check_eof_split_positions() void {
     let t = test.report(io.stderr())..&;
 
@@ -454,6 +466,7 @@ fn main() i32 {
     check_stream_combinators();
     check_namespace_views();
     check_borrowed_index();
+    check_render_round_trip();
     check_eof_split_positions();
     return 0;
 }

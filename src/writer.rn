@@ -1,0 +1,102 @@
+use base.io.Write;
+
+use ..{
+    Element,
+    Error,
+    Event,
+    ProcessingInstruction,
+    Reader,
+    RenderError,
+    RenderErrorKind,
+    Text,
+    reader,
+};
+
+fn render_err(kind: RenderErrorKind, offset: usize) RenderError {
+    return .{ kind, offset };
+}
+
+fn lift_parse(err: Error) RenderError {
+    return .{ kind: .{ Parse: err.kind }, offset: err.offset };
+}
+
+fn write_all(writer: &mut Write, text: &[u8], offset: usize) void!RenderError {
+    if (!writer.write_all(text)) {
+        return .{ Err: render_err(.WriteFailed, offset) };
+    }
+    return .{ Ok: {} };
+}
+
+fn write_pi(writer: &mut Write, open: &[u8], pi: ProcessingInstruction, offset: usize) void!RenderError {
+    write_all(writer, open, offset).!;
+    write_all(writer, pi.target.raw, offset).!;
+    if (#pi.body > 0) {
+        write_all(writer, " ", offset).!;
+        write_all(writer, pi.body, offset).!;
+    }
+    write_all(writer, "?>", offset).!;
+    return .{ Ok: {} };
+}
+
+fn write_element_open(writer: &mut Write, marker: &[u8], element: Element, suffix: &[u8], offset: usize) void!RenderError {
+    write_all(writer, marker, offset).!;
+    write_all(writer, element.name.raw, offset).!;
+    if (#element.attributes_raw > 0) {
+        write_all(writer, element.attributes_raw, offset).!;
+    }
+    write_all(writer, suffix, offset).!;
+    return .{ Ok: {} };
+}
+
+fn write_text_body(writer: &mut Write, text: Text, offset: usize) void!RenderError {
+    write_all(writer, text.raw, offset).!;
+    return .{ Ok: {} };
+}
+
+pub fn render_event(writer: &mut Write, event: Event, offset: usize) void!RenderError {
+    match (event) {
+        .{ Declaration: pi } => write_pi(writer, "<?", pi, offset).!,
+        .{ ProcessingInstruction: pi } => write_pi(writer, "<?", pi, offset).!,
+        .{ Start: element } => write_element_open(writer, "<", element, ">", offset).!,
+        .{ Empty: element } => write_element_open(writer, "<", element, "/>", offset).!,
+        .{ End: name } => {
+            write_all(writer, "</", offset).!;
+            write_all(writer, name.raw, offset).!;
+            write_all(writer, ">", offset).!;
+        },
+        .{ Text: text } => write_text_body(writer, text, offset).!,
+        .{ Comment: text } => {
+            write_all(writer, "<!--", offset).!;
+            write_text_body(writer, text, offset).!;
+            write_all(writer, "-->", offset).!;
+        },
+        .{ CData: text } => {
+            write_all(writer, "<![CDATA[", offset).!;
+            write_text_body(writer, text, offset).!;
+            write_all(writer, "]]>", offset).!;
+        },
+        .{ Doctype: text } => {
+            write_all(writer, "<!DOCTYPE", offset).!;
+            write_text_body(writer, text, offset).!;
+            write_all(writer, ">", offset).!;
+        },
+    }
+    return .{ Ok: {} };
+}
+
+impl &mut Reader {
+    pub fn render_to(writer: &mut Write) void!RenderError {
+        while (true) {
+            let offset = self.offset();
+            let next = self.next().map_err(lift_parse).!;
+            let .{ Some: event } = next else break;
+            render_event(writer, event, offset).!;
+        }
+        return .{ Ok: {} };
+    }
+}
+
+pub fn render_document(source: &[u8], writer: &mut Write) void!RenderError {
+    let mut r = reader(source);
+    return r..&.render_to(writer);
+}

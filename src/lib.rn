@@ -15,9 +15,11 @@ mod stream;
 mod namespace;
 mod validate;
 mod index;
+mod writer;
 
 pub use .stream.drain_events;
 pub use .index.build_index;
+pub use .writer.render_document;
 
 pub enum ErrorKind {
     UnexpectedEof,
@@ -94,6 +96,16 @@ pub enum IndexErrorKind {
 
 pub struct IndexError {
     pub kind: IndexErrorKind,
+    pub offset: usize,
+};
+
+pub enum RenderErrorKind {
+    Parse: ErrorKind,
+    WriteFailed,
+};
+
+pub struct RenderError {
+    pub kind: RenderErrorKind,
     pub offset: usize,
 };
 
@@ -331,6 +343,23 @@ impl &IndexErrorKind : Formatable {
 }
 
 impl &IndexError : Formatable {
+    pub fn write_to(writer: &mut Write) void {
+        self.kind.&.write_to(writer);
+        _ = writer.write(" at byte ");
+        self.offset.&.write_to(writer);
+    }
+}
+
+impl &RenderErrorKind : Formatable {
+    pub fn write_to(writer: &mut Write) void {
+        match (self.*) {
+            .{ Parse: kind } => kind.&.write_to(writer),
+            .WriteFailed => _ = writer.write("XML render write failed"),
+        }
+    }
+}
+
+impl &RenderError : Formatable {
     pub fn write_to(writer: &mut Write) void {
         self.kind.&.write_to(writer);
         _ = writer.write(" at byte ");

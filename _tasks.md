@@ -32,7 +32,7 @@
 - [x] Add a broad malformed-input matrix.
 - [x] Add generated split-position tests for EOF handling.
 - [x] Add larger fixture tests.
-- [ ] Add round-trip tests once writer support exists.
+- [x] Add round-trip tests once writer support exists.
 
 ## P3 Performance
 
@@ -45,5 +45,5 @@
 
 - [x] Borrowed document index for repeated lookup without full ownership.
 - [ ] Owned document tree.
-- [ ] XML writer/renderer.
+- [x] XML writer/renderer.
 - [ ] Namespace-aware validation and querying.
