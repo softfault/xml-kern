@@ -1,5 +1,5 @@
 use ..{Element, EncodedText, Error, Event, Name, ProcessingInstruction, Reader};
-use ..bytes.{err, find, name_end, name_eq, skip_ws, starts_with_at, trim_right_ws};
+use ..bytes.{err, find, find_byte, name_end, name_eq, skip_ws, starts_with_at, trim_right_ws};
 
 fn find_tag_end(text: &[u8], start: usize) usize!Error {
     let mut index = start;
@@ -246,7 +246,7 @@ impl &mut Reader {
         let text = self.source;
         let start = self.index;
         if (text.[start] != b'<') {
-            let end = find(text, "<", start).map_or(#text, [](pos: usize) usize {
+            let end = find_byte(text, b'<', start).map_or(#text, [](pos: usize) usize {
                 return pos;
             });
             validate_text_body(text, start, end).!;

@@ -1,7 +1,7 @@
 use base.mem.alloc.gpa;
 use base.test;
 use std.io;
-use sys.mem.Page;
+use sys.mem.page;
 use xml.{Event, reader};
 
 const FIXTURE =
@@ -86,7 +86,7 @@ fn check_large_fixture_reader() void {
 
 fn check_large_fixture_validation() void {
     let t = test.report(io.stderr())..&;
-    let page = Page.{}..&;
+    let page = page()..&;
     let gpa = gpa().on(page)..&;
     xml.validate(FIXTURE, gpa).should_ok().sum(@loc(), t);
 }

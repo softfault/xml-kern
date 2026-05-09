@@ -37,7 +37,7 @@
 ## P3 Performance
 
 - [ ] Benchmark large `vk.xml`-sized documents.
-- [ ] Add fast byte-search helpers where they matter.
+- [x] Add fast byte-search helpers where they matter.
 - [ ] Avoid repeated scans in attribute-heavy start tags.
 - [ ] Measure decode paths with and without references.
 

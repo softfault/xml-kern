@@ -18,7 +18,7 @@ pub/ fn skip_ws(text: &[u8], index: usize) usize {
 }
 
 pub/ fn starts_with_at(text: &[u8], index: usize, needle: &[u8]) bool {
-    if (#text - index < #needle) {
+    if (index > #text or #text - index < #needle) {
         return false;
     }
     let mut i = 0;
@@ -31,17 +31,38 @@ pub/ fn starts_with_at(text: &[u8], index: usize, needle: &[u8]) bool {
     return true;
 }
 
+pub/ fn find_byte(text: &[u8], needle: u8, start: usize) ?usize {
+    let mut i = start;
+    while (i < #text) {
+        if (text.[i] == needle) {
+            return .{ Some: i };
+        }
+        i += 1;
+    }
+    return .None;
+}
+
 pub/ fn find(text: &[u8], needle: &[u8], start: usize) ?usize {
     if (#needle == 0) {
         return .{ Some: start };
     }
+    if (#needle == 1) {
+        return find_byte(text, needle.[0], start);
+    }
     if (#text < #needle or start > #text - #needle) {
         return .None;
     }
+    let first = needle.[0];
     let mut i = start;
     while (i <= #text - #needle) {
-        if (starts_with_at(text, i, needle)) {
-            return .{ Some: i };
+        if (text.[i] == first) {
+            let mut j = 1;
+            while (j < #needle and text.[i + j] == needle.[j]) {
+                j += 1;
+            }
+            if (j == #needle) {
+                return .{ Some: i };
+            }
         }
         i += 1;
     }

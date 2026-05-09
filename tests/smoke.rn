@@ -1,7 +1,7 @@
 use base.mem.alloc.gpa;
 use base.test;
 use std.io;
-use sys.mem.Page;
+use sys.mem.page;
 use xml.{DecodeErrorKind, ErrorKind, Event, ExpectErrorKind, ValidateErrorKind, reader};
 
 fn expect_next(r: &mut xml.Reader) Event {
@@ -102,7 +102,7 @@ fn check_decode_entities() void {
     let expected = [13]u8.{ b'a', b'&', b'b', b'<', b'c', b'>', b'\'', b'"', b'A', 0xF0, 0x9F, 0x98, 0x80 };
     out.&[0 .. written].should().eq(expected.&[0 .. 13]).sum(@loc(), t);
 
-    let page = Page.{}..&;
+    let page = page()..&;
     let gpa = gpa().on(page)..&;
     let mut cloned = text.clone_decoded(gpa).should_ok().sum(@loc(), t);
     defer cloned..&.deinit(gpa);
@@ -227,7 +227,7 @@ fn check_errors_have_offsets() void {
 
 fn check_validation() void {
     let t = test.report(io.stderr())..&;
-    let page = Page.{}..&;
+    let page = page()..&;
     let gpa = gpa().on(page)..&;
 
     xml.validate("<root><child/><child>text</child></root>", gpa).should_ok().sum(@loc(), t);
