@@ -11,4 +11,7 @@ license = "MIT"
 root = "src/lib.rn"
 
 [test]
-roots = ["tests/smoke.rn"]
+roots = [
+    "tests/smoke.rn",
+    "tests/fixtures.rn",
+]

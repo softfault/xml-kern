@@ -31,7 +31,7 @@
 - [x] Tests for expect combinators.
 - [x] Add a broad malformed-input matrix.
 - [x] Add generated split-position tests for EOF handling.
-- [ ] Add larger fixture tests.
+- [x] Add larger fixture tests.
 - [ ] Add round-trip tests once writer support exists.
 
 ## P3 Performance

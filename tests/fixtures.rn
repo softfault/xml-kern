@@ -1,0 +1,98 @@
+use base.mem.alloc.gpa;
+use base.test;
+use std.io;
+use sys.mem.Page;
+use xml.{Event, reader};
+
+const FIXTURE =
+    "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<!DOCTYPE catalog [ <!ENTITY copy \"Copyright\"> ]>\n<catalog xmlns=\"urn:catalog\" xmlns:x=\"urn:item\" generated=\"true\">\n  <!-- inventory fixture -->\n  <?fixture stage=\"large\"?>\n  <x:item id=\"bk001\" available=\"yes\">\n    <title>XML Developer Guide</title>\n    <author>Gambardella, Matthew</author>\n    <summary><![CDATA[Parser coverage with <tags>, & entities, and ] ]> text.]]></summary>\n  </x:item>\n  <x:item id=\"bk002\" available=\"no\">\n    <title>Midnight Rain</title>\n    <author>Ralls, Kim</author>\n    <summary>Escaped &amp; decoded later &#x2603;</summary>\n  </x:item>\n  <group name=\"tools\">\n    <tool name=\"reader\"/>\n    <tool name=\"validator\"/>\n    <tool name=\"namespace-view\"/>\n  </group>\n</catalog>";
+
+struct Counts {
+    declarations: usize = 0,
+    doctypes: usize = 0,
+    starts: usize = 0,
+    empties: usize = 0,
+    ends: usize = 0,
+    text: usize = 0,
+    comments: usize = 0,
+    cdata: usize = 0,
+    processing: usize = 0,
+    items: usize = 0,
+    namespace_decls: usize = 0,
+};
+
+fn count_event(counts: &mut Counts, event: Event) void {
+    let t = test.report(io.stderr())..&;
+    match (event) {
+        .{ Declaration: _ } => counts.declarations += 1,
+        .{ Doctype: _ } => counts.doctypes += 1,
+        .{ Start: element } => {
+            counts.starts += 1;
+            if (element.name.eq("x:item")) counts.items += 1;
+            let mut attrs = element.attributes();
+            while (true) {
+                let next = attrs..&.next().should_ok().sum(@loc(), t);
+                let .{ Some: attr } = next else break;
+                if (attr.&.is_namespace_declaration()) {
+                    counts.namespace_decls += 1;
+                }
+            }
+        },
+        .{ Empty: element } => {
+            counts.empties += 1;
+            let mut attrs = element.attributes();
+            while (true) {
+                let next = attrs..&.next().should_ok().sum(@loc(), t);
+                let .{ Some: attr } = next else break;
+                if (attr.&.is_namespace_declaration()) {
+                    counts.namespace_decls += 1;
+                }
+            }
+        },
+        .{ End: _ } => counts.ends += 1,
+        .{ Text: text } => if (#text.raw > 0) counts.text += 1,
+        .{ Comment: _ } => counts.comments += 1,
+        .{ CData: _ } => counts.cdata += 1,
+        .{ ProcessingInstruction: _ } => counts.processing += 1,
+    }
+}
+
+fn read_fixture_counts() Counts {
+    let t = test.report(io.stderr())..&;
+    let mut counts = Counts.{};
+    let mut r = reader(FIXTURE);
+    while (true) {
+        let next = r..&.next().should_ok().sum(@loc(), t);
+        let .{ Some: event } = next else break;
+        count_event(counts..&, event);
+    }
+    return counts;
+}
+
+fn check_large_fixture_reader() void {
+    let t = test.report(io.stderr())..&;
+    let counts = read_fixture_counts();
+    counts.declarations.should().eq(1).sum(@loc(), t);
+    counts.doctypes.should().eq(1).sum(@loc(), t);
+    counts.starts.should().eq(10).sum(@loc(), t);
+    counts.empties.should().eq(3).sum(@loc(), t);
+    counts.ends.should().eq(10).sum(@loc(), t);
+    counts.comments.should().eq(1).sum(@loc(), t);
+    counts.cdata.should().eq(1).sum(@loc(), t);
+    counts.processing.should().eq(1).sum(@loc(), t);
+    counts.items.should().eq(2).sum(@loc(), t);
+    counts.namespace_decls.should().eq(2).sum(@loc(), t);
+}
+
+fn check_large_fixture_validation() void {
+    let t = test.report(io.stderr())..&;
+    let page = Page.{}..&;
+    let gpa = gpa().on(page)..&;
+    xml.validate(FIXTURE, gpa).should_ok().sum(@loc(), t);
+}
+
+fn main() i32 {
+    check_large_fixture_reader();
+    check_large_fixture_validation();
+    return 0;
+}
