@@ -379,6 +379,36 @@ fn check_namespace_views() void {
     }
 }
 
+fn check_borrowed_index() void {
+    let t = test.report(io.stderr())..&;
+    let page = page()..&;
+    let gpa = gpa().on(page)..&;
+    let index = xml.build_index("<root><item id=\"a\"><leaf/></item><item id=\"b\"/><other/></root>", gpa).should_ok().sum(@loc(), t)..&;
+    defer index.deinit(gpa);
+
+    index.len().should().eq(5).sum(@loc(), t);
+    let root_id = index.root().should_some().sum(@loc(), t);
+    let root = index.get(root_id).should_some().sum(@loc(), t);
+    root.element.name.eq("root").should().sum(@loc(), t);
+    root.depth.should().eq(0).sum(@loc(), t);
+
+    let first_item_id = index.first_child_named(root_id, "item").should_some().sum(@loc(), t);
+    let first_item = index.get(first_item_id).should_some().sum(@loc(), t);
+    first_item.parent.should_some().sum(@loc(), t).should().eq(root_id).sum(@loc(), t);
+    first_item.element.name.eq("item").should().sum(@loc(), t);
+
+    let leaf_id = index.first_child_named(first_item_id, "leaf").should_some().sum(@loc(), t);
+    let leaf = index.get(leaf_id).should_some().sum(@loc(), t);
+    leaf.depth.should().eq(2).sum(@loc(), t);
+
+    let second_item_id = index.next_sibling_named(first_item_id, "item").should_some().sum(@loc(), t);
+    let second_item = index.get(second_item_id).should_some().sum(@loc(), t);
+    second_item.element.name.eq("item").should().sum(@loc(), t);
+    index.next_sibling_named(second_item_id, "item").should_none().sum(@loc(), t);
+    index.count_descendants_named(root_id, "item").should().eq(2).sum(@loc(), t);
+    index.count_descendants_named(root_id, "leaf").should().eq(1).sum(@loc(), t);
+}
+
 fn check_eof_split_positions() void {
     let t = test.report(io.stderr())..&;
 
@@ -426,6 +456,7 @@ fn main() i32 {
     check_expect_combinators();
     check_stream_combinators();
     check_namespace_views();
+    check_borrowed_index();
     check_eof_split_positions();
     return 0;
 }

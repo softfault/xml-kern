@@ -1,0 +1,206 @@
+use base.coll.List;
+use base.mem.alloc.Allocator;
+
+use ..{
+    DocumentIndex,
+    Element,
+    Error,
+    Event,
+    IndexError,
+    IndexErrorKind,
+    IndexedNode,
+    Reader,
+    ValidateErrorKind,
+    reader,
+};
+
+fn index_err(kind: IndexErrorKind, offset: usize) IndexError {
+    return .{ kind, offset };
+}
+
+fn lift_parse(err: Error) IndexError {
+    return .{ kind: .{ Parse: err.kind }, offset: err.offset };
+}
+
+fn node_at(nodes: &mut List[IndexedNode], index: usize) (&mut IndexedNode)!IndexError {
+    let .{ Some: node } = nodes.get_ptr(index) else {
+        return .{ Err: index_err(.OutOfMemory, 0) };
+    };
+    return .{ Ok: node };
+}
+
+fn push_node(
+    nodes: &mut List[IndexedNode],
+    stack: &mut List[usize],
+    alloc: &mut Allocator,
+    element: Element,
+    offset: usize,
+    closed: bool,
+) void!IndexError {
+    let parent = stack.last();
+    let depth = stack.len();
+    let index = nodes.len();
+    let node = IndexedNode.{
+        element: element,
+        parent: parent,
+        first_child: .None,
+        last_child: .None,
+        next_sibling: .None,
+        depth: depth,
+    };
+    if (!nodes.push(alloc, node)) {
+        return .{ Err: index_err(.OutOfMemory, offset) };
+    }
+
+    match (parent) {
+        .{ Some: parent_index } => {
+            let parent_node = node_at(nodes, parent_index).!;
+            match (parent_node.first_child) {
+                .None => {
+                    parent_node.first_child = .{ Some: index };
+                    parent_node.last_child = .{ Some: index };
+                },
+                .{ Some: _ } => {
+                    let .{ Some: last } = parent_node.last_child else {
+                        return .{ Err: index_err(.OutOfMemory, offset) };
+                    };
+                    let sibling = node_at(nodes, last).!;
+                    sibling.next_sibling = .{ Some: index };
+                    let parent_node = node_at(nodes, parent_index).!;
+                    parent_node.last_child = .{ Some: index };
+                },
+            }
+        },
+        .None => {},
+    }
+
+    if (!closed and !stack.push(alloc, index)) {
+        return .{ Err: index_err(.OutOfMemory, offset) };
+    }
+    return .{ Ok: {} };
+}
+
+impl &mut DocumentIndex {
+    pub fn deinit(alloc: &mut Allocator) void {
+        self.*.nodes..&.deinit(alloc);
+        self.* = DocumentIndex.{};
+    }
+}
+
+impl &DocumentIndex {
+    pub fn len() usize {
+        return self.nodes.&.len();
+    }
+
+    pub fn is_empty() bool {
+        return self.nodes.&.is_empty();
+    }
+
+    pub fn root() ?usize {
+        return self.root_index;
+    }
+
+    pub fn get(index: usize) ?IndexedNode {
+        return self.nodes.&.get(index);
+    }
+
+    pub fn first_child(index: usize) ?usize {
+        let .{ Some: node } = self.get(index) else return .None;
+        return node.first_child;
+    }
+
+    pub fn next_sibling(index: usize) ?usize {
+        let .{ Some: node } = self.get(index) else return .None;
+        return node.next_sibling;
+    }
+
+    pub fn first_child_named(index: usize, name: &[u8]) ?usize {
+        let mut current = self.first_child(index);
+        while (true) {
+            let .{ Some: node_index } = current else return .None;
+            let .{ Some: node } = self.get(node_index) else return .None;
+            if (node.element.name.eq(name)) {
+                return .{ Some: node_index };
+            }
+            current = node.next_sibling;
+        }
+        return .None;
+    }
+
+    pub fn next_sibling_named(index: usize, name: &[u8]) ?usize {
+        let mut current = self.next_sibling(index);
+        while (true) {
+            let .{ Some: node_index } = current else return .None;
+            let .{ Some: node } = self.get(node_index) else return .None;
+            if (node.element.name.eq(name)) {
+                return .{ Some: node_index };
+            }
+            current = node.next_sibling;
+        }
+        return .None;
+    }
+
+    pub fn count_descendants_named(index: usize, name: &[u8]) usize {
+        let .{ Some: root } = self.get(index) else return 0;
+        let mut count = usize.{0};
+        let mut i = index + 1;
+        while (i < self.len()) {
+            let .{ Some: node } = self.get(i) else return count;
+            if (node.depth <= root.depth) {
+                return count;
+            }
+            if (node.element.name.eq(name)) {
+                count += 1;
+            }
+            i += 1;
+        }
+        return count;
+    }
+}
+
+impl &mut Reader {
+    pub fn build_index(alloc: &mut Allocator) DocumentIndex!IndexError {
+        self.validate(alloc).map_err([](err: ..ValidateError) IndexError {
+            return .{ kind: .{ Validate: err.kind }, offset: err.offset };
+        }).!;
+
+        let mut scan = reader(self.source());
+        let mut out = DocumentIndex.{};
+        let stack = List[usize].{}..&;
+        defer stack.deinit(alloc);
+
+        while (true) {
+            let offset = scan.&.offset();
+            let next = scan..&.next().map_err(lift_parse).!;
+            let .{ Some: event } = next else break;
+            match (event) {
+                .{ Start: element } => {
+                    if (out.root_index.is_none() and stack.is_empty()) {
+                        out.root_index = .{ Some: out.nodes.len() };
+                    }
+                    push_node(out.nodes..&, stack, alloc, element, offset, false).!;
+                },
+                .{ Empty: element } => {
+                    if (out.root_index.is_none() and stack.is_empty()) {
+                        out.root_index = .{ Some: out.nodes.len() };
+                    }
+                    push_node(out.nodes..&, stack, alloc, element, offset, true).!;
+                },
+                .{ End: _ } => {
+                    let .{ Some: _ } = stack.pop() else {
+                        out..&.deinit(alloc);
+                        return .{ Err: index_err(.{ Validate: .MismatchedEnd }, offset) };
+                    };
+                },
+                _ => {},
+            }
+        }
+
+        return .{ Ok: out };
+    }
+}
+
+pub fn build_index(source: &[u8], alloc: &mut Allocator) DocumentIndex!IndexError {
+    let mut r = reader(source);
+    return r..&.build_index(alloc);
+}

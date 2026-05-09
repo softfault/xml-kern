@@ -43,7 +43,7 @@
 
 ## P4 Higher Layers
 
-- [ ] Borrowed document index for repeated lookup without full ownership.
+- [x] Borrowed document index for repeated lookup without full ownership.
 - [ ] Owned document tree.
 - [ ] XML writer/renderer.
 - [ ] Namespace-aware validation and querying.

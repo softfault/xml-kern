@@ -16,6 +16,8 @@ Core APIs:
 - `reader.filter_significant()`, `reader.elements()`, and `reader.names()` provide small streaming adapters.
 - `xml.drain_events(stream, sink)` drives trait-backed event sinks.
 - `element.attributes()` creates an `AttributeCursor`.
+- `xml.build_index(source, alloc)` builds a borrowed element index for repeated
+  root/child/sibling lookup without owning or copying XML text.
 - `name.qualified()`, `element.qualified_name()`, and `attribute.namespace_declaration()` provide borrowed namespace-aware lexical views.
 - `EncodedText.decoded_size/write_decoded/clone_decoded` handle XML predefined entities and numeric character references.
 - `reader.validate(alloc)` and `xml.validate(source, alloc)` check a single well-formed root and matching element nesting.

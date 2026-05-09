@@ -13,8 +13,10 @@ mod expect;
 mod stream;
 mod namespace;
 mod validate;
+mod index;
 
 pub use .stream.drain_events;
+pub use .index.build_index;
 
 pub enum ErrorKind {
     UnexpectedEof,
@@ -80,6 +82,17 @@ pub enum ValidateErrorKind {
 
 pub struct ValidateError {
     pub kind: ValidateErrorKind,
+    pub offset: usize,
+};
+
+pub enum IndexErrorKind {
+    Parse: ErrorKind,
+    Validate: ValidateErrorKind,
+    OutOfMemory,
+};
+
+pub struct IndexError {
+    pub kind: IndexErrorKind,
     pub offset: usize,
 };
 
@@ -177,6 +190,20 @@ pub struct SinkStats {
 
 pub trait EventSink {
     fn on_event(event: Event) bool!Error;
+};
+
+pub struct IndexedNode {
+    pub element: Element,
+    pub parent: ?usize,
+    pub first_child: ?usize,
+    pub last_child: ?usize,
+    pub next_sibling: ?usize,
+    pub depth: usize,
+};
+
+pub struct DocumentIndex {
+    pub/ nodes: base.coll.List[IndexedNode] = base.coll.List[IndexedNode].{},
+    pub/ root_index: ?usize = .None,
 };
 
 pub fn reader(source: &[u8]) Reader {
@@ -287,6 +314,24 @@ impl &ValidateErrorKind : Formatable {
 }
 
 impl &ValidateError : Formatable {
+    pub fn write_to(writer: &mut Write) void {
+        self.kind.&.write_to(writer);
+        _ = writer.write(" at byte ");
+        self.offset.&.write_to(writer);
+    }
+}
+
+impl &IndexErrorKind : Formatable {
+    pub fn write_to(writer: &mut Write) void {
+        match (self.*) {
+            .{ Parse: kind } => kind.&.write_to(writer),
+            .{ Validate: kind } => kind.&.write_to(writer),
+            .OutOfMemory => _ = writer.write("out of memory"),
+        }
+    }
+}
+
+impl &IndexError : Formatable {
     pub fn write_to(writer: &mut Write) void {
         self.kind.&.write_to(writer);
         _ = writer.write(" at byte ");
