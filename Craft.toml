@@ -10,6 +10,11 @@ license = "MIT"
 [lib]
 root = "src/lib.rn"
 
+[example]
+roots = [
+    "examples/bench_xml.rn",
+]
+
 [test]
 roots = [
     "tests/smoke.rn",

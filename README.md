@@ -20,6 +20,12 @@ Core APIs:
 - `EncodedText.decoded_size/write_decoded/clone_decoded` handle XML predefined entities and numeric character references.
 - `reader.validate(alloc)` and `xml.validate(source, alloc)` check a single well-formed root and matching element nesting.
 
+Benchmarking:
+
+- `examples/bench_xml.rn` measures parse, validate, and decode paths over a
+  generated Vulkan-like document or an external XML file such as `vk.xml`.
+  See `bench/README.md`.
+
 Current scope:
 
 - XML declaration and processing instructions
