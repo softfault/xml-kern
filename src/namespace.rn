@@ -1,0 +1,68 @@
+use ..{Attribute, Element, EncodedText, Name, NamespaceBinding, NamespaceDeclaration, QualifiedName};
+
+fn colon_at(raw: &[u8]) ?usize {
+    let mut i = 0;
+    while (i < #raw) {
+        if (raw.[i] == b':') {
+            return .{ Some: i };
+        }
+        i += 1;
+    }
+    return .None;
+}
+
+fn qualified(raw: &[u8]) QualifiedName {
+    match (colon_at(raw)) {
+        .{ Some: index } => return .{
+            prefix: .{ Some: raw.&[0 .. index] },
+            local: raw.&[index + 1 .. #raw],
+        },
+        .None => return .{ prefix: .None, local: raw },
+    }
+}
+
+impl &Name {
+    pub fn qualified() QualifiedName {
+        return qualified(self.raw);
+    }
+
+    pub fn prefix() ?&[u8] {
+        return self.qualified().prefix;
+    }
+
+    pub fn local() &[u8] {
+        return self.qualified().local;
+    }
+}
+
+impl &Element {
+    pub fn qualified_name() QualifiedName {
+        return self.name.&.qualified();
+    }
+}
+
+impl &Attribute {
+    pub fn qualified_name() QualifiedName {
+        return self.name.&.qualified();
+    }
+
+    pub fn namespace_declaration() ?NamespaceDeclaration {
+        if (self.name.eq("xmlns")) {
+            return .{ Some: .{ Default: self.value } };
+        }
+
+        let qname = self.name.&.qualified();
+        let .{ Some: prefix } = qname.prefix else return .None;
+        if (prefix == "xmlns" and #qname.local > 0) {
+            return .{ Some: .{ Prefixed: NamespaceBinding.{ prefix: qname.local, uri: self.value } } };
+        }
+        return .None;
+    }
+
+    pub fn is_namespace_declaration() bool {
+        match (self.namespace_declaration()) {
+            .{ Some: _ } => return true,
+            .None => return false,
+        }
+    }
+}

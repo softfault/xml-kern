@@ -1,0 +1,128 @@
+use ..{Element, Error, Event, EventSink, EventStream, FilteredReader, MappedReader, Name, Reader, SinkStats};
+
+impl &mut Reader : EventStream {
+    pub fn next_event() ?Event!Error {
+        return self.next();
+    }
+}
+
+impl &mut Reader {
+    pub fn filter_events(pred: &Fn(Event) bool) FilteredReader {
+        return .{ inner: self.*, pred };
+    }
+
+    pub fn filter_significant() FilteredReader {
+        return self.filter_events(is_significant_event);
+    }
+
+    pub fn map_events[T](map_event: &Fn(Event) ?T) MappedReader[T] {
+        return .{ inner: self.*, map_event };
+    }
+
+    pub fn elements() MappedReader[Element] {
+        return self.map_events[Element](event_element);
+    }
+
+    pub fn names() MappedReader[Name] {
+        return self.map_events[Name](event_name);
+    }
+}
+
+impl &mut FilteredReader : EventStream {
+    pub fn next_event() ?Event!Error {
+        while (true) {
+            let next = self.inner..&.next().!;
+            let .{ Some: event } = next else return .{ Ok: .None };
+            if (self.pred(event)) {
+                return .{ Ok: .{ Some: event } };
+            }
+        }
+    }
+}
+
+impl &mut FilteredReader {
+    pub fn next() ?Event!Error {
+        return self.next_event();
+    }
+}
+
+impl[T] &mut MappedReader[T] {
+    pub fn next() ?T!Error {
+        while (true) {
+            let next = self.inner..&.next().!;
+            let .{ Some: event } = next else return .{ Ok: .None };
+            let mapped = self.map_event(event);
+            let .{ Some: value } = mapped else continue;
+            return .{ Ok: .{ Some: value } };
+        }
+    }
+}
+
+fn is_ws_text(raw: &[u8]) bool {
+    let mut i = 0;
+    while (i < #raw) {
+        let byte = raw.[i];
+        if (!(byte == b' ' or byte == b'\n' or byte == b'\r' or byte == b'\t')) {
+            return false;
+        }
+        i += 1;
+    }
+    return true;
+}
+
+fn is_significant_event(event: Event) bool {
+    match (event) {
+        .{ Text: text } => return !is_ws_text(text.raw),
+        .{ Comment: _ } => return false,
+        .{ ProcessingInstruction: _ } => return false,
+        _ => return true,
+    }
+}
+
+fn event_element(event: Event) ?Element {
+    match (event) {
+        .{ Start: element } => return .{ Some: element },
+        .{ Empty: element } => return .{ Some: element },
+        _ => return .None,
+    }
+}
+
+fn event_name(event: Event) ?Name {
+    match (event) {
+        .{ Start: element } => return .{ Some: element.name },
+        .{ Empty: element } => return .{ Some: element.name },
+        .{ End: name } => return .{ Some: name },
+        _ => return .None,
+    }
+}
+
+fn count_event(stats: &mut SinkStats, event: Event) void {
+    stats.events += 1;
+    match (event) {
+        .{ Start: _ } => stats.starts += 1,
+        .{ Empty: _ } => stats.empties += 1,
+        .{ End: _ } => stats.ends += 1,
+        .{ Text: _ } => stats.text += 1,
+        _ => {},
+    }
+}
+
+impl &mut SinkStats : EventSink {
+    pub fn on_event(event: Event) bool!Error {
+        count_event(self, event);
+        return .{ Ok: true };
+    }
+}
+
+pub fn drain_events(stream: &mut EventStream, sink: &mut EventSink) usize!Error {
+    let mut count = 0;
+    while (true) {
+        let next = stream.next_event().!;
+        let .{ Some: event } = next else return .{ Ok: count };
+        if (!sink.on_event(event).!) {
+            return .{ Ok: count };
+        }
+        count += 1;
+    }
+    return .{ Ok: count };
+}

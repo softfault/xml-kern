@@ -10,7 +10,11 @@ mod decode;
 mod attribute;
 mod reader_impl;
 mod expect;
+mod stream;
+mod namespace;
 mod validate;
+
+pub use .stream.drain_events;
 
 pub enum ErrorKind {
     UnexpectedEof,
@@ -83,6 +87,11 @@ pub struct Name {
     pub raw: &[u8],
 };
 
+pub struct QualifiedName {
+    pub prefix: ?&[u8],
+    pub local: &[u8],
+};
+
 pub struct EncodedText {
     pub raw: &[u8],
 };
@@ -93,6 +102,16 @@ pub struct Attribute {
     pub name: Name,
     pub value: EncodedText,
     pub raw: &[u8],
+};
+
+pub struct NamespaceBinding {
+    pub prefix: &[u8],
+    pub uri: EncodedText,
+};
+
+pub enum NamespaceDeclaration {
+    Default: EncodedText,
+    Prefixed: NamespaceBinding,
 };
 
 pub struct AttributeCursor {
@@ -132,6 +151,32 @@ pub struct Reader {
     pub/ index: usize = 0,
     pub/ started: bool = false,
     pub/ done: bool = false,
+};
+
+pub trait EventStream {
+    fn next_event() ?Event!Error;
+};
+
+pub struct FilteredReader {
+    pub/ inner: Reader,
+    pub/ pred: &Fn(Event) bool,
+};
+
+pub struct MappedReader[T] {
+    pub/ inner: Reader,
+    pub/ map_event: &Fn(Event) ?T,
+};
+
+pub struct SinkStats {
+    pub events: usize = 0,
+    pub starts: usize = 0,
+    pub empties: usize = 0,
+    pub ends: usize = 0,
+    pub text: usize = 0,
+};
+
+pub trait EventSink {
+    fn on_event(event: Event) bool!Error;
 };
 
 pub fn reader(source: &[u8]) Reader {

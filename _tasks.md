@@ -19,9 +19,9 @@
 - [x] Keep stateful operations on `Reader` and `AttributeCursor` methods.
 - [x] Keep query methods on shared receivers where useful.
 - [x] Provide `Formatable` for public error types.
-- [ ] Add trait-backed event sinks for streaming transforms.
-- [ ] Add small composable filters/maps around `Reader`.
-- [ ] Add namespace-aware name and attribute views.
+- [x] Add trait-backed event sinks for streaming transforms.
+- [x] Add small composable filters/maps around `Reader`.
+- [x] Add namespace-aware name and attribute views.
 
 ## P2 Testing
 

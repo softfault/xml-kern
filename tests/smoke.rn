@@ -277,6 +277,85 @@ fn check_expect_combinators() void {
     }
 }
 
+fn check_stream_combinators() void {
+    let t = test.report(io.stderr())..&;
+
+    let mut counted_reader = reader("<root><child/>text</root>");
+    let mut stats = xml.SinkStats.{};
+    let stream = &mut xml.EventStream.{ counted_reader..& };
+    let sink = &mut xml.EventSink.{ stats..& };
+    xml.drain_events(stream, sink).should_ok().sum(@loc(), t).should().eq(4).sum(@loc(), t);
+    stats.events.should().eq(4).sum(@loc(), t);
+    stats.starts.should().eq(1).sum(@loc(), t);
+    stats.empties.should().eq(1).sum(@loc(), t);
+    stats.ends.should().eq(1).sum(@loc(), t);
+    stats.text.should().eq(1).sum(@loc(), t);
+
+    let mut noisy = reader("<!--meta--> \n <root><?go?></root>");
+    let mut significant = noisy..&.filter_significant();
+    match (significant..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t)) {
+        .{ Start: root } => root.name.eq("root").should().sum(@loc(), t),
+        _ => t.fail_at(@loc(), "expected significant start"),
+    }
+    match (significant..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t)) {
+        .{ End: name } => name.eq("root").should().sum(@loc(), t),
+        _ => t.fail_at(@loc(), "expected significant end"),
+    }
+    significant..&.next().should_ok().sum(@loc(), t).should_none().sum(@loc(), t);
+
+    let mut source = reader("<root><leaf/>tail</root>");
+    let mut elements = source..&.elements();
+    elements..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t).name.eq("root").should().sum(@loc(), t);
+    elements..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t).name.eq("leaf").should().sum(@loc(), t);
+    elements..&.next().should_ok().sum(@loc(), t).should_none().sum(@loc(), t);
+
+    let mut named_source = reader("<root><leaf/></root>");
+    let mut names = named_source..&.names();
+    names..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t).eq("root").should().sum(@loc(), t);
+    names..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t).eq("leaf").should().sum(@loc(), t);
+    names..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t).eq("root").should().sum(@loc(), t);
+    names..&.next().should_ok().sum(@loc(), t).should_none().sum(@loc(), t);
+}
+
+fn check_namespace_views() void {
+    let t = test.report(io.stderr())..&;
+    let mut r = reader("<x:root xmlns=\"urn:default\" xmlns:x=\"urn:x\" x:id=\"7\" plain=\"v\"/>");
+    match (expect_next(r..&)) {
+        .{ Empty: root } => {
+            let root_name = root.&.qualified_name();
+            root_name.prefix.should_some().sum(@loc(), t).should().eq("x").sum(@loc(), t);
+            root_name.local.should().eq("root").sum(@loc(), t);
+
+            let mut attrs = root.attributes();
+            let default_ns = attrs..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
+            match (default_ns.&.namespace_declaration().should_some().sum(@loc(), t)) {
+                .{ Default: uri } => uri.raw.should().eq("urn:default").sum(@loc(), t),
+                _ => t.fail_at(@loc(), "expected default namespace"),
+            }
+
+            let prefixed_ns = attrs..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
+            match (prefixed_ns.&.namespace_declaration().should_some().sum(@loc(), t)) {
+                .{ Prefixed: binding } => {
+                    binding.prefix.should().eq("x").sum(@loc(), t);
+                    binding.uri.raw.should().eq("urn:x").sum(@loc(), t);
+                },
+                _ => t.fail_at(@loc(), "expected prefixed namespace"),
+            }
+
+            let id = attrs..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
+            (!id.&.is_namespace_declaration()).should().sum(@loc(), t);
+            let id_name = id.&.qualified_name();
+            id_name.prefix.should_some().sum(@loc(), t).should().eq("x").sum(@loc(), t);
+            id_name.local.should().eq("id").sum(@loc(), t);
+
+            let plain = attrs..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
+            plain.&.qualified_name().prefix.should_none().sum(@loc(), t);
+            plain.name.&.local().should().eq("plain").sum(@loc(), t);
+        },
+        _ => t.fail_at(@loc(), "expected namespaced empty element"),
+    }
+}
+
 fn main() i32 {
     check_basic_events();
     check_decode_entities();
@@ -284,5 +363,7 @@ fn main() i32 {
     check_errors_have_offsets();
     check_validation();
     check_expect_combinators();
+    check_stream_combinators();
+    check_namespace_views();
     return 0;
 }
