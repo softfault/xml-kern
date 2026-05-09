@@ -53,6 +53,7 @@ fn write_text_body(writer: &mut Write, text: Text, offset: usize) void!RenderErr
     return .{ Ok: {} };
 }
 
+/// Writes one XML event to `writer` without normalizing or escaping payloads.
 pub fn render_event(writer: &mut Write, event: Event, offset: usize) void!RenderError {
     match (event) {
         .{ Declaration: pi } => write_pi(writer, "<?", pi, offset).!,
@@ -85,6 +86,7 @@ pub fn render_event(writer: &mut Write, event: Event, offset: usize) void!Render
 }
 
 impl &mut Reader {
+    /// Renders all remaining events from this reader to `writer`.
     pub fn render_to(writer: &mut Write) void!RenderError {
         while (true) {
             let offset = self.offset();
@@ -96,6 +98,7 @@ impl &mut Reader {
     }
 }
 
+/// Renders a complete source document by replaying parsed events.
 pub fn render_document(source: &[u8], writer: &mut Write) void!RenderError {
     let mut r = reader(source);
     return r..&.render_to(writer);

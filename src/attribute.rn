@@ -2,16 +2,19 @@ use ..{Attribute, AttributeCursor, EncodedText, Error, Name};
 use ..bytes.{err, name_end, skip_ws};
 
 impl &AttributeCursor {
+    /// Returns the raw attribute-list slice being scanned.
     pub fn source() &[u8] {
         return self.raw;
     }
 
+    /// Returns `true` after the cursor has reached the end of the attribute list.
     pub fn is_done() bool {
         return self.done;
     }
 }
 
 impl &mut AttributeCursor {
+    /// Parses and returns the next attribute, or `None` at the end of the list.
     pub fn next() ?Attribute!Error {
         if (self.done) {
             return .{ Ok: .None };
@@ -41,6 +44,8 @@ impl &mut AttributeCursor {
         let quote = text.[index];
         let value_start = index + 1;
         index = value_start;
+        // Attribute values are returned encoded; the cursor only has to find
+        // the matching quote and leave entity decoding to `EncodedText`.
         while (index < #text and text.[index] != quote) {
             index += 1;
         }

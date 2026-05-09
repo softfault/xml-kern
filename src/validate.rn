@@ -38,6 +38,7 @@ fn has_duplicate_attributes(element: Element, alloc: &mut Allocator, event_start
 }
 
 impl &mut Reader {
+    /// Validates this reader's remaining source as a single-root XML document.
     pub fn validate(alloc: &mut Allocator) void!ValidateError {
         let stack = list[Name]()..&;
         defer stack.deinit(alloc);

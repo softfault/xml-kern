@@ -47,3 +47,14 @@
 - [x] Owned document tree.
 - [x] XML writer/renderer.
 - [x] Namespace-aware validation and querying.
+
+## Release Preparation
+
+- [x] Bring public API documentation to release-grade coverage.
+- [x] Keep benchmark, smoke, fixture, style, and format checks passing.
+- [x] Keep the package import name as `xml` while the repository uses the
+  `xml-kern` ecosystem name.
+- [ ] Fill final package ownership metadata before publish: `[package].authors`
+  and `[package].repository`.
+- [ ] Remove or flip `[package].publish = false` after the remote repository is
+  initialized and linked.

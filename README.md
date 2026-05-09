@@ -32,7 +32,7 @@ Benchmarking:
   generated Vulkan-like document or an external XML file such as `vk.xml`.
   See `bench/README.md`.
 
-Current scope:
+Implemented scope:
 
 - XML declaration and processing instructions
 - start, end, and empty element events
@@ -40,9 +40,16 @@ Current scope:
 - text, comments, CDATA, and doctype events
 - BOM skipping
 - entity and numeric character reference decoding
+- well-formedness validation for a single root, matching element nesting,
+  duplicate attributes, XML declaration placement, comments, and character data
+- borrowed document indexing for repeated lookup without copying source text
+- namespace-aware lexical views and URI resolution over indexed documents
+- owned document cloning for callers that need to release the source buffer
+- round-trip rendering for already parsed XML event streams
 
-Planned higher layers include namespace-aware validation, indexed borrowed views,
-owned document models, writer/renderer support, and larger conformance fixtures.
-The current namespace API is a borrowed lexical view over names and namespace
-declaration attributes; URI scope resolution belongs to the later validation and
-query layers.
+Release status:
+
+`xml-kern` is intended to become a normal third-party ecosystem package. The
+Kern package name remains `xml` so users can write `use xml...`; the repository
+name carries the `-kern` ecosystem suffix. Keep `[package].publish = false`
+until the remote repository URL and package ownership metadata are final.

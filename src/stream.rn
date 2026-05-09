@@ -1,34 +1,41 @@
 use ..{Element, Error, Event, EventSink, EventStream, FilteredReader, MappedReader, Name, Reader, SinkStats};
 
 impl &mut Reader : EventStream {
+    /// Returns the next reader event through the stream trait.
     pub fn next_event() ?Event!Error {
         return self.next();
     }
 }
 
 impl &mut Reader {
+    /// Creates a filtering adapter over this reader's current state.
     pub fn filter_events(pred: &Fn(Event) bool) FilteredReader {
         return .{ inner: self.*, pred };
     }
 
+    /// Creates an adapter that skips whitespace text, comments, and processing instructions.
     pub fn filter_significant() FilteredReader {
         return self.filter_events(is_significant_event);
     }
 
+    /// Creates an adapter that maps accepted events into `T`.
     pub fn map_events[T](map_event: &Fn(Event) ?T) MappedReader[T] {
         return .{ inner: self.*, map_event };
     }
 
+    /// Creates an adapter that yields start and empty elements.
     pub fn elements() MappedReader[Element] {
         return self.map_events[Element](event_element);
     }
 
+    /// Creates an adapter that yields start, empty, and end names.
     pub fn names() MappedReader[Name] {
         return self.map_events[Name](event_name);
     }
 }
 
 impl &mut FilteredReader : EventStream {
+    /// Returns the next event accepted by the filter predicate.
     pub fn next_event() ?Event!Error {
         while (true) {
             let next = self.inner..&.next().!;
@@ -41,12 +48,14 @@ impl &mut FilteredReader : EventStream {
 }
 
 impl &mut FilteredReader {
+    /// Returns the next event accepted by the filter predicate.
     pub fn next() ?Event!Error {
         return self.next_event();
     }
 }
 
 impl[T] &mut MappedReader[T] {
+    /// Returns the next mapped value accepted by the mapping function.
     pub fn next() ?T!Error {
         while (true) {
             let next = self.inner..&.next().!;
@@ -105,12 +114,14 @@ fn count_event(stats: &mut SinkStats, event: Event) void {
 }
 
 impl &mut SinkStats : EventSink {
+    /// Counts `event` and keeps draining.
     pub fn on_event(event: Event) bool!Error {
         count_event(self, event);
         return .{ Ok: true };
     }
 }
 
+/// Drains events from `stream` into `sink` and returns the accepted count.
 pub fn drain_events(stream: &mut EventStream, sink: &mut EventSink) usize!Error {
     let mut count = 0;
     while (true) {

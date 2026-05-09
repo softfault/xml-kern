@@ -18,11 +18,16 @@ mod index;
 mod writer;
 mod owned;
 
+/// Drains an XML event stream into a sink until EOF or the sink stops.
 pub use .stream.drain_events;
+/// Builds a borrowed document index over validated XML source.
 pub use .index.build_index;
+/// Renders a source document by replaying its parsed event stream.
 pub use .writer.render_document;
+/// Clones a validated XML document into owned storage.
 pub use .owned.clone_owned_document;
 
+/// Tokenizer-level XML parse error categories.
 pub enum ErrorKind {
     UnexpectedEof,
     UnexpectedByte,
@@ -38,17 +43,20 @@ pub enum ErrorKind {
     UnterminatedTag,
 };
 
+/// Tokenizer-level XML parse error with a byte offset.
 pub struct Error {
     pub kind: ErrorKind,
     pub offset: usize,
 };
 
+/// Human-readable source location derived from a byte offset.
 pub struct Location {
     pub offset: usize,
     pub line: usize,
     pub column: usize,
 };
 
+/// XML entity and character-reference decoding error categories.
 pub enum DecodeErrorKind {
     UnknownEntity,
     InvalidReference,
@@ -58,11 +66,13 @@ pub enum DecodeErrorKind {
     OutOfMemory,
 };
 
+/// XML text decoding error with a byte offset in the encoded text.
 pub struct DecodeError {
     pub kind: DecodeErrorKind,
     pub offset: usize,
 };
 
+/// Error categories produced by expect-style reader combinators.
 pub enum ExpectErrorKind {
     Parse: ErrorKind,
     UnexpectedEof,
@@ -70,11 +80,13 @@ pub enum ExpectErrorKind {
     NameMismatch,
 };
 
+/// Expect-combinator error with the reader offset before the expected event.
 pub struct ExpectError {
     pub kind: ExpectErrorKind,
     pub offset: usize,
 };
 
+/// Well-formedness validation error categories.
 pub enum ValidateErrorKind {
     Parse: ErrorKind,
     OutOfMemory,
@@ -85,79 +97,95 @@ pub enum ValidateErrorKind {
     UnclosedElement,
 };
 
+/// Validation error with a byte offset in the source document.
 pub struct ValidateError {
     pub kind: ValidateErrorKind,
     pub offset: usize,
 };
 
+/// Borrowed document index construction error categories.
 pub enum IndexErrorKind {
     Parse: ErrorKind,
     Validate: ValidateErrorKind,
     OutOfMemory,
 };
 
+/// Borrowed document index construction error with a byte offset.
 pub struct IndexError {
     pub kind: IndexErrorKind,
     pub offset: usize,
 };
 
+/// XML rendering error categories.
 pub enum RenderErrorKind {
     Parse: ErrorKind,
     WriteFailed,
 };
 
+/// XML rendering error with the source event offset being rendered.
 pub struct RenderError {
     pub kind: RenderErrorKind,
     pub offset: usize,
 };
 
+/// Owned document construction error categories.
 pub enum OwnedErrorKind {
     Parse: ErrorKind,
     Validate: ValidateErrorKind,
     OutOfMemory,
 };
 
+/// Owned document construction error with a byte offset.
 pub struct OwnedError {
     pub kind: OwnedErrorKind,
     pub offset: usize,
 };
 
+/// Borrowed XML name slice.
 pub struct Name {
     pub raw: &[u8],
 };
 
+/// Borrowed lexical split of a possibly prefixed XML name.
 pub struct QualifiedName {
     pub prefix: ?&[u8],
     pub local: &[u8],
 };
 
+/// Borrowed XML text that may contain entity or character references.
 pub struct EncodedText {
     pub raw: &[u8],
 };
 
+/// Alias for borrowed encoded XML text.
 pub type Text = EncodedText;
 
+/// Borrowed XML attribute with encoded value text.
 pub struct Attribute {
     pub name: Name,
     pub value: EncodedText,
     pub raw: &[u8],
 };
 
+/// Namespace prefix binding declared by an `xmlns:prefix` attribute.
 pub struct NamespaceBinding {
     pub prefix: &[u8],
     pub uri: EncodedText,
 };
 
+/// Namespace declaration attribute view.
 pub enum NamespaceDeclaration {
     Default: EncodedText,
     Prefixed: NamespaceBinding,
 };
 
+/// Namespace-resolved name using an optional namespace URI.
 pub struct ResolvedName {
     pub uri: ?EncodedText,
     pub local: &[u8],
 };
 
+/// Cursor over an element's raw attribute list.
 pub struct AttributeCursor {
     pub/ raw: &[u8],
     pub/ offset_base: usize,
@@ -165,6 +193,7 @@ pub struct AttributeCursor {
     pub/ done: bool = false,
 };
 
+/// Borrowed start or empty XML element.
 pub struct Element {
     pub name: Name,
     pub raw: &[u8],
@@ -172,12 +201,14 @@ pub struct Element {
     pub/ attributes_offset: usize,
 };
 
+/// Borrowed XML declaration or processing-instruction event payload.
 pub struct ProcessingInstruction {
     pub target: Name,
     pub body: &[u8],
     pub raw: &[u8],
 };
 
+/// Borrowed XML pull-parser event.
 pub enum Event {
     Declaration: ProcessingInstruction,
     ProcessingInstruction: ProcessingInstruction,
@@ -190,6 +221,7 @@ pub enum Event {
     Doctype: Text,
 };
 
+/// Allocation-free pull reader over borrowed XML source bytes.
 pub struct Reader {
     pub/ source: &[u8],
     pub/ index: usize = 0,
@@ -197,20 +229,24 @@ pub struct Reader {
     pub/ done: bool = false,
 };
 
+/// Trait abstraction for XML event producers.
 pub trait EventStream {
     fn next_event() ?Event!Error;
 };
 
+/// Reader adapter that yields only events accepted by a predicate.
 pub struct FilteredReader {
     pub/ inner: Reader,
     pub/ pred: &Fn(Event) bool,
 };
 
+/// Reader adapter that maps selected events into another borrowed value.
 pub struct MappedReader[T] {
     pub/ inner: Reader,
     pub/ map_event: &Fn(Event) ?T,
 };
 
+/// Basic event-counting sink state.
 pub struct SinkStats {
     pub events: usize = 0,
     pub starts: usize = 0,
@@ -219,10 +255,12 @@ pub struct SinkStats {
     pub text: usize = 0,
 };
 
+/// Trait abstraction for streaming XML event consumers.
 pub trait EventSink {
     fn on_event(event: Event) bool!Error;
 };
 
+/// Borrowed node stored in a `DocumentIndex`.
 pub struct IndexedNode {
     pub element: Element,
     pub parent: ?usize,
@@ -232,17 +270,20 @@ pub struct IndexedNode {
     pub depth: usize,
 };
 
+/// Borrowed tree index over a validated XML document.
 pub struct DocumentIndex {
     pub/ nodes: List[IndexedNode] = List[IndexedNode].{},
     pub/ root_index: ?usize = .None,
 };
 
+/// Owned copy of an element's borrowed name and raw slices.
 pub struct OwnedElement {
     pub name: base.coll.String,
     pub raw: base.coll.String,
     pub attributes_raw: base.coll.String,
 };
 
+/// Owned tree node with the same topology as `IndexedNode`.
 pub struct OwnedNode {
     pub element: OwnedElement,
     pub parent: ?usize,
@@ -252,20 +293,24 @@ pub struct OwnedNode {
     pub depth: usize,
 };
 
+/// Owned document tree that no longer depends on the source buffer.
 pub struct OwnedDocument {
     pub/ nodes: List[OwnedNode] = List[OwnedNode].{},
     pub/ root_index: ?usize = .None,
 };
 
+/// Creates an allocation-free pull reader over `source`.
 pub fn reader(source: &[u8]) Reader {
     return .{ source };
 }
 
+/// Validates that `source` is a well-formed single-root XML document.
 pub fn validate(source: &[u8], alloc: &mut base.mem.alloc.Allocator) void!ValidateError {
     let mut r = reader(source);
     return r..&.validate(alloc);
 }
 
+/// Converts a byte offset into a one-based line and column location.
 pub fn locate(source: &[u8], offset: usize) Location {
     let mut line = 1;
     let mut column = 1;
@@ -282,6 +327,7 @@ pub fn locate(source: &[u8], offset: usize) Location {
 }
 
 impl &ErrorKind : Formatable {
+    /// Writes a human-readable tokenizer error category.
     pub fn write_to(writer: &mut Write) void {
         match (self.*) {
             .UnexpectedEof => _ = writer.write("unexpected end of file"),
@@ -301,6 +347,7 @@ impl &ErrorKind : Formatable {
 }
 
 impl &Error : Formatable {
+    /// Writes a human-readable tokenizer error and byte offset.
     pub fn write_to(writer: &mut Write) void {
         self.kind.&.write_to(writer);
         _ = writer.write(" at byte ");
@@ -309,6 +356,7 @@ impl &Error : Formatable {
 }
 
 impl &DecodeErrorKind : Formatable {
+    /// Writes a human-readable decode error category.
     pub fn write_to(writer: &mut Write) void {
         match (self.*) {
             .UnknownEntity => _ = writer.write("unknown XML entity"),
@@ -322,6 +370,7 @@ impl &DecodeErrorKind : Formatable {
 }
 
 impl &DecodeError : Formatable {
+    /// Writes a human-readable decode error and byte offset.
     pub fn write_to(writer: &mut Write) void {
         self.kind.&.write_to(writer);
         _ = writer.write(" at byte ");
@@ -330,6 +379,7 @@ impl &DecodeError : Formatable {
 }
 
 impl &ExpectErrorKind : Formatable {
+    /// Writes a human-readable expect-combinator error category.
     pub fn write_to(writer: &mut Write) void {
         match (self.*) {
             .{ Parse: kind } => kind.&.write_to(writer),
@@ -341,6 +391,7 @@ impl &ExpectErrorKind : Formatable {
 }
 
 impl &ExpectError : Formatable {
+    /// Writes a human-readable expect-combinator error and byte offset.
     pub fn write_to(writer: &mut Write) void {
         self.kind.&.write_to(writer);
         _ = writer.write(" at byte ");
@@ -349,6 +400,7 @@ impl &ExpectError : Formatable {
 }
 
 impl &ValidateErrorKind : Formatable {
+    /// Writes a human-readable validation error category.
     pub fn write_to(writer: &mut Write) void {
         match (self.*) {
             .{ Parse: kind } => kind.&.write_to(writer),
@@ -363,6 +415,7 @@ impl &ValidateErrorKind : Formatable {
 }
 
 impl &ValidateError : Formatable {
+    /// Writes a human-readable validation error and byte offset.
     pub fn write_to(writer: &mut Write) void {
         self.kind.&.write_to(writer);
         _ = writer.write(" at byte ");
@@ -371,6 +424,7 @@ impl &ValidateError : Formatable {
 }
 
 impl &IndexErrorKind : Formatable {
+    /// Writes a human-readable index construction error category.
     pub fn write_to(writer: &mut Write) void {
         match (self.*) {
             .{ Parse: kind } => kind.&.write_to(writer),
@@ -381,6 +435,7 @@ impl &IndexErrorKind : Formatable {
 }
 
 impl &IndexError : Formatable {
+    /// Writes a human-readable index construction error and byte offset.
     pub fn write_to(writer: &mut Write) void {
         self.kind.&.write_to(writer);
         _ = writer.write(" at byte ");
@@ -389,6 +444,7 @@ impl &IndexError : Formatable {
 }
 
 impl &RenderErrorKind : Formatable {
+    /// Writes a human-readable rendering error category.
     pub fn write_to(writer: &mut Write) void {
         match (self.*) {
             .{ Parse: kind } => kind.&.write_to(writer),
@@ -398,6 +454,7 @@ impl &RenderErrorKind : Formatable {
 }
 
 impl &RenderError : Formatable {
+    /// Writes a human-readable rendering error and byte offset.
     pub fn write_to(writer: &mut Write) void {
         self.kind.&.write_to(writer);
         _ = writer.write(" at byte ");
@@ -406,6 +463,7 @@ impl &RenderError : Formatable {
 }
 
 impl &OwnedErrorKind : Formatable {
+    /// Writes a human-readable owned-document error category.
     pub fn write_to(writer: &mut Write) void {
         match (self.*) {
             .{ Parse: kind } => kind.&.write_to(writer),
@@ -416,6 +474,7 @@ impl &OwnedErrorKind : Formatable {
 }
 
 impl &OwnedError : Formatable {
+    /// Writes a human-readable owned-document error and byte offset.
     pub fn write_to(writer: &mut Write) void {
         self.kind.&.write_to(writer);
         _ = writer.write(" at byte ");
@@ -424,16 +483,19 @@ impl &OwnedError : Formatable {
 }
 
 impl Name {
+    /// Returns `true` when the name slice is empty.
     pub fn is_empty() bool {
         return #self.raw == 0;
     }
 
+    /// Compares the borrowed name bytes with `text`.
     pub fn eq(text: &[u8]) bool {
         return self.raw == text;
     }
 }
 
 impl Element {
+    /// Creates a cursor over this element's raw attributes.
     pub fn attributes() AttributeCursor {
         return .{ raw: self.attributes_raw, offset_base: self.attributes_offset };
     }

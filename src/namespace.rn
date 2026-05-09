@@ -32,30 +32,36 @@ fn qualified(raw: &[u8]) QualifiedName {
 }
 
 impl &Name {
+    /// Splits this name into optional prefix and local part.
     pub fn qualified() QualifiedName {
         return qualified(self.raw);
     }
 
+    /// Returns the lexical namespace prefix, if present.
     pub fn prefix() ?&[u8] {
         return self.qualified().prefix;
     }
 
+    /// Returns the local part after any namespace prefix.
     pub fn local() &[u8] {
         return self.qualified().local;
     }
 }
 
 impl &Element {
+    /// Returns the qualified view of this element name.
     pub fn qualified_name() QualifiedName {
         return self.name.&.qualified();
     }
 }
 
 impl &Attribute {
+    /// Returns the qualified view of this attribute name.
     pub fn qualified_name() QualifiedName {
         return self.name.&.qualified();
     }
 
+    /// Interprets this attribute as an XML namespace declaration, if applicable.
     pub fn namespace_declaration() ?NamespaceDeclaration {
         if (self.name.eq("xmlns")) {
             return .{ Some: .{ Default: self.value } };
@@ -69,6 +75,7 @@ impl &Attribute {
         return .None;
     }
 
+    /// Returns `true` when this attribute declares a namespace binding.
     pub fn is_namespace_declaration() bool {
         match (self.namespace_declaration()) {
             .{ Some: _ } => return true,
@@ -97,6 +104,7 @@ fn namespace_attr_value(element: Element, prefix: ?&[u8]) ?EncodedText {
 }
 
 impl &DocumentIndex {
+    /// Resolves `prefix` by walking from node `index` to ancestors.
     pub fn namespace_for(index: usize, prefix: ?&[u8]) ?EncodedText {
         let mut current = (?usize).{ Some: index };
         while (true) {
@@ -110,6 +118,7 @@ impl &DocumentIndex {
         return .None;
     }
 
+    /// Resolves the indexed element name to namespace URI and local part.
     pub fn resolved_name(index: usize) ?ResolvedName {
         let .{ Some: node } = self.get(index) else return .None;
         let qname = node.element.name.&.qualified();
@@ -117,6 +126,7 @@ impl &DocumentIndex {
         return .{ Some: ResolvedName.{ uri: uri, local: qname.local } };
     }
 
+    /// Finds the first child with resolved namespace URI and local name.
     pub fn first_child_ns(index: usize, uri: &[u8], local: &[u8]) ?usize {
         let mut current = self.first_child(index);
         while (true) {

@@ -110,6 +110,7 @@ fn reference_end(text: &[u8], amp: usize) usize!DecodeError {
 }
 
 impl EncodedText {
+    /// Returns `true` when the text contains an entity or character reference marker.
     pub fn contains_reference() bool {
         let mut index = 0;
         while (index < #self.raw) {
@@ -121,6 +122,7 @@ impl EncodedText {
         return false;
     }
 
+    /// Returns the byte length after decoding XML references.
     pub fn decoded_size() usize!DecodeError {
         let mut size = 0;
         let mut index = 0;
@@ -147,6 +149,7 @@ impl EncodedText {
         return .{ Ok: size };
     }
 
+    /// Writes decoded text into `out` and returns the number of bytes written.
     pub fn write_decoded(out: &mut [u8]) usize!DecodeError {
         let mut written = 0;
         let mut index = 0;
@@ -181,42 +184,21 @@ impl EncodedText {
         return .{ Ok: written };
     }
 
+    /// Clones decoded text into an owned string.
     pub fn clone_decoded(alloc: &mut Allocator) String!DecodeError {
         let size = self.decoded_size().!;
         let mut out = string();
-        if (!out..&.reserve(alloc, size)) {
+        let .{ Some: bytes } = out..&.append_uninit_exact(alloc, size) else {
             return .{ Err: decode_err(.OutOfMemory, 0) };
-        }
-        let mut buffer = [4]u8.{undef};
-        let mut index = 0;
-        while (index < #self.raw) {
-            if (self.raw.[index] != b'&') {
-                if (!out..&.push_char(alloc, self.raw.[index])) {
-                    out..&.deinit(alloc);
-                    return .{ Err: decode_err(.OutOfMemory, index) };
-                }
-                index += 1;
-                continue;
-            }
-
-            let end = reference_end(self.raw, index).!;
-            let body = self.raw.&[index + 1 .. end];
-            let written = if (#body > 0 and body.[0] == b'#') {
-                let codepoint = parse_char_ref(body, index + 1).!;
-                write_utf8_at(codepoint, buffer..&[0 .. 4], 0).!
-            } else {
-                let .{ Some: value } = named_entity(body) else {
-                    out..&.deinit(alloc);
-                    return .{ Err: decode_err(.UnknownEntity, index) };
-                };
-                buffer.[0] = value;
-                1
-            };
-            if (!out..&.push_str(alloc, buffer.&[0 .. written])) {
+        };
+        // `decoded_size` and `write_decoded` share the same validation path, so
+        // the exact-size buffer should be sufficient unless the source changed.
+        match (self.write_decoded(bytes)) {
+            .{ Ok: _ } => {},
+            .{ Err: err } => {
                 out..&.deinit(alloc);
-                return .{ Err: decode_err(.OutOfMemory, index) };
-            }
-            index = end + 1;
+                return .{ Err: err };
+            },
         }
         return .{ Ok: out };
     }

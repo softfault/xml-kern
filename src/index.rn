@@ -81,6 +81,7 @@ fn push_node(
 }
 
 impl &mut DocumentIndex {
+    /// Releases index storage and resets the index to empty.
     pub fn deinit(alloc: &mut Allocator) void {
         self.*.nodes..&.deinit(alloc);
         self.* = DocumentIndex.{};
@@ -88,32 +89,39 @@ impl &mut DocumentIndex {
 }
 
 impl &DocumentIndex {
+    /// Returns the number of indexed element nodes.
     pub fn len() usize {
         return self.nodes.&.len();
     }
 
+    /// Returns `true` when the index contains no element nodes.
     pub fn is_empty() bool {
         return self.nodes.&.is_empty();
     }
 
+    /// Returns the root element node index.
     pub fn root() ?usize {
         return self.root_index;
     }
 
+    /// Returns the indexed node at `index`.
     pub fn get(index: usize) ?IndexedNode {
         return self.nodes.&.get(index);
     }
 
+    /// Returns the first child node index for `index`.
     pub fn first_child(index: usize) ?usize {
         let .{ Some: node } = self.get(index) else return .None;
         return node.first_child;
     }
 
+    /// Returns the next sibling node index for `index`.
     pub fn next_sibling(index: usize) ?usize {
         let .{ Some: node } = self.get(index) else return .None;
         return node.next_sibling;
     }
 
+    /// Finds the first child whose raw element name equals `name`.
     pub fn first_child_named(index: usize, name: &[u8]) ?usize {
         let mut current = self.first_child(index);
         while (true) {
@@ -127,6 +135,7 @@ impl &DocumentIndex {
         return .None;
     }
 
+    /// Finds the next sibling whose raw element name equals `name`.
     pub fn next_sibling_named(index: usize, name: &[u8]) ?usize {
         let mut current = self.next_sibling(index);
         while (true) {
@@ -140,6 +149,7 @@ impl &DocumentIndex {
         return .None;
     }
 
+    /// Counts descendants whose raw element name equals `name`.
     pub fn count_descendants_named(index: usize, name: &[u8]) usize {
         let .{ Some: root } = self.get(index) else return 0;
         let mut count = usize.{0};
@@ -159,6 +169,7 @@ impl &DocumentIndex {
 }
 
 impl &mut Reader {
+    /// Builds a borrowed index from this reader's source.
     pub fn build_index(alloc: &mut Allocator) DocumentIndex!IndexError {
         self.validate(alloc).map_err([](err: ..ValidateError) IndexError {
             return .{ kind: .{ Validate: err.kind }, offset: err.offset };
@@ -200,6 +211,7 @@ impl &mut Reader {
     }
 }
 
+/// Builds a borrowed element index over `source`.
 pub fn build_index(source: &[u8], alloc: &mut Allocator) DocumentIndex!IndexError {
     let mut r = reader(source);
     return r..&.build_index(alloc);

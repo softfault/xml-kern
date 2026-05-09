@@ -1,14 +1,17 @@
 use ..Error;
 use ..ErrorKind;
 
+/// Creates a tokenizer error at `offset`.
 pub/ fn err(kind: ErrorKind, offset: usize) Error {
     return .{ kind, offset };
 }
 
+/// Returns `true` for XML whitespace bytes.
 pub/ fn is_ws(byte: u8) bool {
     return byte == b' ' or byte == b'\n' or byte == b'\r' or byte == b'\t';
 }
 
+/// Skips XML whitespace from `index`.
 pub/ fn skip_ws(text: &[u8], index: usize) usize {
     let mut i = index;
     while (i < #text and is_ws(text.[i])) {
@@ -17,6 +20,7 @@ pub/ fn skip_ws(text: &[u8], index: usize) usize {
     return i;
 }
 
+/// Returns `true` when `needle` occurs at `index`.
 pub/ fn starts_with_at(text: &[u8], index: usize, needle: &[u8]) bool {
     if (index > #text or #text - index < #needle) {
         return false;
@@ -31,6 +35,7 @@ pub/ fn starts_with_at(text: &[u8], index: usize, needle: &[u8]) bool {
     return true;
 }
 
+/// Finds one byte starting at `start`.
 pub/ fn find_byte(text: &[u8], needle: u8, start: usize) ?usize {
     let mut i = start;
     while (i < #text) {
@@ -42,6 +47,7 @@ pub/ fn find_byte(text: &[u8], needle: u8, start: usize) ?usize {
     return .None;
 }
 
+/// Finds `needle` starting at `start`.
 pub/ fn find(text: &[u8], needle: &[u8], start: usize) ?usize {
     if (#needle == 0) {
         return .{ Some: start };
@@ -69,14 +75,17 @@ pub/ fn find(text: &[u8], needle: &[u8], start: usize) ?usize {
     return .None;
 }
 
+/// Fast ASCII-compatible XML name-start precheck.
 pub/ fn is_name_start(byte: u8) bool {
     return byte == b':' or byte == b'_' or (byte >= b'A' and byte <= b'Z') or (byte >= b'a' and byte <= b'z') or byte >= 0x80;
 }
 
+/// Fast ASCII-compatible XML name-continue precheck.
 pub/ fn is_name_continue(byte: u8) bool {
     return is_name_start(byte) or byte == b'-' or byte == b'.' or (byte >= b'0' and byte <= b'9');
 }
 
+/// Decoded UTF-8 scalar and its source byte length.
 pub/ struct Utf8Char {
     codepoint: u32,
     len: usize,
@@ -160,6 +169,7 @@ fn is_xml_name_continue_scalar(codepoint: u32) bool {
         or (codepoint >= 0x203F and codepoint <= 0x2040);
 }
 
+/// Returns the byte offset after a valid XML name.
 pub/ fn name_end(text: &[u8], start: usize) usize!Error {
     if (start >= #text) {
         return .{ Err: err(.UnexpectedEof, start) };
@@ -180,6 +190,7 @@ pub/ fn name_end(text: &[u8], start: usize) usize!Error {
     return .{ Ok: i };
 }
 
+/// Compares a source name slice with an expected byte string.
 pub/ fn name_eq(text: &[u8], start: usize, stop: usize, expected: &[u8]) bool {
     if (stop < start or stop - start != #expected) {
         return false;
@@ -194,6 +205,7 @@ pub/ fn name_eq(text: &[u8], start: usize, stop: usize, expected: &[u8]) bool {
     return true;
 }
 
+/// Trims XML whitespace from the right side of `text`.
 pub/ fn trim_right_ws(text: &[u8]) &[u8] {
     let mut end = #text;
     while (end > 0 and is_ws(text.[end - 1])) {

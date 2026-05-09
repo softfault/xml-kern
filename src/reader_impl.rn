@@ -18,6 +18,7 @@ fn find_tag_end(text: &[u8], start: usize) usize!Error {
             index += 1;
             continue;
         }
+        // `>` terminates a tag only outside quoted attribute values.
         if (byte == b'>') {
             return .{ Ok: index };
         }
@@ -56,12 +57,24 @@ fn find_doctype_end(text: &[u8], start: usize) usize!Error {
             index += 1;
             continue;
         }
+        // Internal subsets may contain `>` tokens; the declaration closes only
+        // after the bracket depth returns to the outer doctype body.
         if (byte == b'>' and subset_depth == 0) {
             return .{ Ok: index };
         }
         index += 1;
     }
     return .{ Err: err(.UnterminatedDoctype, start) };
+}
+
+fn is_xml_target_case_insensitive(text: &[u8], start: usize, stop: usize) bool {
+    if (stop < start or stop - start != 3) {
+        return false;
+    }
+    let a = text.[start];
+    let b = text.[start + 1];
+    let c = text.[start + 2];
+    return (a == b'x' or a == b'X') and (b == b'm' or b == b'M') and (c == b'l' or c == b'L');
 }
 
 fn is_empty_tag(raw_inside: &[u8]) bool {
@@ -207,20 +220,24 @@ fn parse_declaration(text: &[u8], start: usize) ProcessingInstruction!Error {
 }
 
 impl &Reader {
+    /// Returns the full borrowed source slice.
     pub fn source() &[u8] {
         return self.source;
     }
 
+    /// Returns the current byte offset in the source.
     pub fn offset() usize {
         return self.index;
     }
 
+    /// Returns `true` after the reader has reached EOF.
     pub fn is_done() bool {
         return self.done;
     }
 }
 
 impl &mut Reader {
+    /// Parses and returns the next XML event, or `None` at EOF.
     pub fn next() ?Event!Error {
         if (self.done) {
             return .{ Ok: .None };
@@ -273,7 +290,7 @@ impl &mut Reader {
                 self.index = start + #pi.raw;
                 return .{ Ok: .{ Some: .{ Declaration: pi } } };
             }
-            if (name_eq(text, target_start, target_stop, "XML") or name_eq(text, target_start, target_stop, "Xml") or name_eq(text, target_start, target_stop, "xMl") or name_eq(text, target_start, target_stop, "xmL") or name_eq(text, target_start, target_stop, "XMl") or name_eq(text, target_start, target_stop, "xML") or name_eq(text, target_start, target_stop, "XmL")) {
+            if (is_xml_target_case_insensitive(text, target_start, target_stop)) {
                 return .{ Err: err(.InvalidDeclaration, target_start) };
             }
             let pi = parse_pi(text, start).!;

@@ -10,6 +10,36 @@ fn expect_next(r: &mut xml.Reader) Event {
     return r.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
 }
 
+fn expect_attr(attrs: &mut xml.AttributeCursor) xml.Attribute {
+    let t = test.report(io.stderr())..&;
+    return attrs.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
+}
+
+fn expect_no_attr(attrs: &mut xml.AttributeCursor) void {
+    let t = test.report(io.stderr())..&;
+    attrs.next().should_ok().sum(@loc(), t).should_none().sum(@loc(), t);
+}
+
+fn expect_element(elements: &mut xml.MappedReader[xml.Element]) xml.Element {
+    let t = test.report(io.stderr())..&;
+    return elements.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
+}
+
+fn expect_no_element(elements: &mut xml.MappedReader[xml.Element]) void {
+    let t = test.report(io.stderr())..&;
+    elements.next().should_ok().sum(@loc(), t).should_none().sum(@loc(), t);
+}
+
+fn expect_name(names: &mut xml.MappedReader[xml.Name]) xml.Name {
+    let t = test.report(io.stderr())..&;
+    return names.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
+}
+
+fn expect_no_name(names: &mut xml.MappedReader[xml.Name]) void {
+    let t = test.report(io.stderr())..&;
+    names.next().should_ok().sum(@loc(), t).should_none().sum(@loc(), t);
+}
+
 fn expect_prefix_errors(source: &[u8], min_len: usize, complete_events: usize) void {
     let t = test.report(io.stderr())..&;
     for (split: range[usize](min_len, #source)) {
@@ -38,13 +68,13 @@ fn check_basic_events() void {
         .{ Start: root } => {
             root.name.eq("root").should().sum(@loc(), t);
             let mut attrs = root.attributes();
-            let id = attrs..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
-            let flag = attrs..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
+            let id = expect_attr(attrs..&);
+            let flag = expect_attr(attrs..&);
             id.name.eq("id").should().sum(@loc(), t);
             id.value.raw.should().eq("7").sum(@loc(), t);
             flag.name.eq("flag").should().sum(@loc(), t);
             flag.value.raw.should().eq("yes").sum(@loc(), t);
-            attrs..&.next().should_ok().sum(@loc(), t).should_none().sum(@loc(), t);
+            expect_no_attr(attrs..&);
         },
         _ => t.fail_at(@loc(), "expected root start"),
     }
@@ -75,7 +105,7 @@ fn check_basic_events() void {
         .{ Empty: empty } => {
             empty.name.eq("empty").should().sum(@loc(), t);
             let mut attrs = empty.attributes();
-            let attr = attrs..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
+            let attr = expect_attr(attrs..&);
             attr.name.eq("a").should().sum(@loc(), t);
             attr.value.raw.should().eq("b").sum(@loc(), t);
         },
@@ -325,16 +355,16 @@ fn check_stream_combinators() void {
 
     let mut source = reader("<root><leaf/>tail</root>");
     let mut elements = source..&.elements();
-    elements..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t).name.eq("root").should().sum(@loc(), t);
-    elements..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t).name.eq("leaf").should().sum(@loc(), t);
-    elements..&.next().should_ok().sum(@loc(), t).should_none().sum(@loc(), t);
+    expect_element(elements..&).name.eq("root").should().sum(@loc(), t);
+    expect_element(elements..&).name.eq("leaf").should().sum(@loc(), t);
+    expect_no_element(elements..&);
 
     let mut named_source = reader("<root><leaf/></root>");
     let mut names = named_source..&.names();
-    names..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t).eq("root").should().sum(@loc(), t);
-    names..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t).eq("leaf").should().sum(@loc(), t);
-    names..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t).eq("root").should().sum(@loc(), t);
-    names..&.next().should_ok().sum(@loc(), t).should_none().sum(@loc(), t);
+    expect_name(names..&).eq("root").should().sum(@loc(), t);
+    expect_name(names..&).eq("leaf").should().sum(@loc(), t);
+    expect_name(names..&).eq("root").should().sum(@loc(), t);
+    expect_no_name(names..&);
 }
 
 fn check_namespace_views() void {
@@ -347,13 +377,13 @@ fn check_namespace_views() void {
             root_name.local.should().eq("root").sum(@loc(), t);
 
             let mut attrs = root.attributes();
-            let default_ns = attrs..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
+            let default_ns = expect_attr(attrs..&);
             match (default_ns.&.namespace_declaration().should_some().sum(@loc(), t)) {
                 .{ Default: uri } => uri.raw.should().eq("urn:default").sum(@loc(), t),
                 _ => t.fail_at(@loc(), "expected default namespace"),
             }
 
-            let prefixed_ns = attrs..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
+            let prefixed_ns = expect_attr(attrs..&);
             match (prefixed_ns.&.namespace_declaration().should_some().sum(@loc(), t)) {
                 .{ Prefixed: binding } => {
                     binding.prefix.should().eq("x").sum(@loc(), t);
@@ -362,13 +392,13 @@ fn check_namespace_views() void {
                 _ => t.fail_at(@loc(), "expected prefixed namespace"),
             }
 
-            let id = attrs..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
+            let id = expect_attr(attrs..&);
             (!id.&.is_namespace_declaration()).should().sum(@loc(), t);
             let id_name = id.&.qualified_name();
             id_name.prefix.should_some().sum(@loc(), t).should().eq("x").sum(@loc(), t);
             id_name.local.should().eq("id").sum(@loc(), t);
 
-            let plain = attrs..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
+            let plain = expect_attr(attrs..&);
             plain.&.qualified_name().prefix.should_none().sum(@loc(), t);
             plain.name.&.local().should().eq("plain").sum(@loc(), t);
         },
@@ -385,19 +415,23 @@ fn check_namespace_index_queries() void {
 
     let root_id = index.root().should_some().sum(@loc(), t);
     let root_name = index.resolved_name(root_id).should_some().sum(@loc(), t);
-    root_name.uri.should_some().sum(@loc(), t).raw.should().eq("urn:root").sum(@loc(), t);
+    let root_uri = root_name.uri.should_some().sum(@loc(), t);
+    root_uri.raw.should().eq("urn:root").sum(@loc(), t);
     root_name.local.should().eq("root").sum(@loc(), t);
 
     let default_child = index.first_child_ns(root_id, "urn:root", "child").should_some().sum(@loc(), t);
-    index.get(default_child).should_some().sum(@loc(), t).element.name.eq("child").should().sum(@loc(), t);
+    let default_child_node = index.get(default_child).should_some().sum(@loc(), t);
+    default_child_node.element.name.eq("child").should().sum(@loc(), t);
 
     let prefixed_child = index.first_child_ns(root_id, "urn:x", "child").should_some().sum(@loc(), t);
-    index.get(prefixed_child).should_some().sum(@loc(), t).element.name.eq("x:child").should().sum(@loc(), t);
+    let prefixed_child_node = index.get(prefixed_child).should_some().sum(@loc(), t);
+    prefixed_child_node.element.name.eq("x:child").should().sum(@loc(), t);
 
     let scope_id = index.first_child_named(root_id, "scope").should_some().sum(@loc(), t);
     let inner_child = index.first_child_ns(scope_id, "urn:inner", "child").should_some().sum(@loc(), t);
     let inner_name = index.resolved_name(inner_child).should_some().sum(@loc(), t);
-    inner_name.uri.should_some().sum(@loc(), t).raw.should().eq("urn:inner").sum(@loc(), t);
+    let inner_uri = inner_name.uri.should_some().sum(@loc(), t);
+    inner_uri.raw.should().eq("urn:inner").sum(@loc(), t);
 }
 
 fn check_borrowed_index() void {
@@ -483,9 +517,9 @@ fn check_eof_split_positions() void {
         },
     };
     let mut attrs = element.attributes();
-    _ = attrs..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
-    _ = attrs..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
-    attrs..&.next().should_ok().sum(@loc(), t).should_none().sum(@loc(), t);
+    _ = expect_attr(attrs..&);
+    _ = expect_attr(attrs..&);
+    expect_no_attr(attrs..&);
 
     let mut bad_attr_owner = reader("<root a value>");
     let bad = match (expect_next(bad_attr_owner..&)) {

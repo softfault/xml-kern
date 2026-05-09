@@ -66,6 +66,7 @@ fn push_owned_node(out: &mut OwnedDocument, alloc: &mut Allocator, source: Index
 }
 
 impl &mut OwnedDocument {
+    /// Releases all owned node strings and resets the document to empty.
     pub fn deinit(alloc: &mut Allocator) void {
         let mut i = usize.{0};
         while (i < self.nodes.len()) {
@@ -79,32 +80,39 @@ impl &mut OwnedDocument {
 }
 
 impl &OwnedDocument {
+    /// Returns the number of owned element nodes.
     pub fn len() usize {
         return self.nodes.&.len();
     }
 
+    /// Returns `true` when the document has no element nodes.
     pub fn is_empty() bool {
         return self.nodes.&.is_empty();
     }
 
+    /// Returns the root element node index.
     pub fn root() ?usize {
         return self.root_index;
     }
 
+    /// Returns the owned node at `index`.
     pub fn get(index: usize) ?OwnedNode {
         return self.nodes.&.get(index);
     }
 
+    /// Returns the first child node index for `index`.
     pub fn first_child(index: usize) ?usize {
         let .{ Some: node } = self.get(index) else return .None;
         return node.first_child;
     }
 
+    /// Returns the next sibling node index for `index`.
     pub fn next_sibling(index: usize) ?usize {
         let .{ Some: node } = self.get(index) else return .None;
         return node.next_sibling;
     }
 
+    /// Finds the first child whose owned element name equals `name`.
     pub fn first_child_named(index: usize, name: &[u8]) ?usize {
         let mut current = self.first_child(index);
         while (true) {
@@ -119,6 +127,7 @@ impl &OwnedDocument {
     }
 }
 
+/// Builds an owned document tree by validating, indexing, then copying nodes.
 pub fn clone_owned_document(source: &[u8], alloc: &mut Allocator) OwnedDocument!OwnedError {
     let mut index = build_index(source, alloc).map_err(lift_index).!;
     defer index..&.deinit(alloc);
