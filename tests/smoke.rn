@@ -117,6 +117,15 @@ fn check_doctype_and_bom() void {
 
 fn check_errors_have_offsets() void {
     let t = test.report(io.stderr())..&;
+    let mut full_decl = reader("<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?><root/>");
+    match (expect_next(full_decl..&)) {
+        .{ Declaration: pi } => {
+            pi.target.eq("xml").should().sum(@loc(), t);
+            pi.body.should().eq("version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"").sum(@loc(), t);
+        },
+        _ => t.fail_at(@loc(), "expected full XML declaration"),
+    }
+
     let mut r = reader("<root><!--oops");
     match (expect_next(r..&)) {
         .{ Start: root } => root.name.eq("root").should().sum(@loc(), t),
@@ -133,6 +142,70 @@ fn check_errors_have_offsets() void {
     let loc = xml.locate("a\nbc", 3);
     loc.line.should().eq(2).sum(@loc(), t);
     loc.column.should().eq(2).sum(@loc(), t);
+
+    let mut bad_comment = reader("<root><!--bad--body--></root>");
+    match (expect_next(bad_comment..&)) {
+        .{ Start: root } => root.name.eq("root").should().sum(@loc(), t),
+        _ => t.fail_at(@loc(), "expected root"),
+    }
+    let comment_err = bad_comment..&.next().should_err().sum(@loc(), t);
+    comment_err.kind.should().eq(ErrorKind.InvalidComment).sum(@loc(), t);
+    comment_err.offset.should().eq(13).sum(@loc(), t);
+
+    let mut bad_text = reader("<root>bad ]]></root>");
+    match (expect_next(bad_text..&)) {
+        .{ Start: root } => root.name.eq("root").should().sum(@loc(), t),
+        _ => t.fail_at(@loc(), "expected root"),
+    }
+    let text_err = bad_text..&.next().should_err().sum(@loc(), t);
+    text_err.kind.should().eq(ErrorKind.InvalidCharacterData).sum(@loc(), t);
+
+    let mut late_decl = reader("<root><?xml version=\"1.0\"?></root>");
+    match (expect_next(late_decl..&)) {
+        .{ Start: root } => root.name.eq("root").should().sum(@loc(), t),
+        _ => t.fail_at(@loc(), "expected root"),
+    }
+    let decl_err = late_decl..&.next().should_err().sum(@loc(), t);
+    decl_err.kind.should().eq(ErrorKind.InvalidDeclaration).sum(@loc(), t);
+
+    let mut bad_decl = reader("<?xml encoding=\"utf-8\"?><root/>");
+    let bad_decl_err = bad_decl..&.next().should_err().sum(@loc(), t);
+    bad_decl_err.kind.should().eq(ErrorKind.InvalidDeclaration).sum(@loc(), t);
+
+    let mut duplicate_decl_attr = reader("<?xml version=\"1.0\" version=\"1.1\"?><root/>");
+    let duplicate_decl_attr_err = duplicate_decl_attr..&.next().should_err().sum(@loc(), t);
+    duplicate_decl_attr_err.kind.should().eq(ErrorKind.InvalidDeclaration).sum(@loc(), t);
+
+    let mut out_of_order_decl = reader("<?xml version=\"1.0\" standalone=\"yes\" encoding=\"utf-8\"?><root/>");
+    let out_of_order_decl_err = out_of_order_decl..&.next().should_err().sum(@loc(), t);
+    out_of_order_decl_err.kind.should().eq(ErrorKind.InvalidDeclaration).sum(@loc(), t);
+
+    let mut bad_version_decl = reader("<?xml version=\"2.0\"?><root/>");
+    let bad_version_decl_err = bad_version_decl..&.next().should_err().sum(@loc(), t);
+    bad_version_decl_err.kind.should().eq(ErrorKind.InvalidDeclaration).sum(@loc(), t);
+
+    let mut bad_encoding_decl = reader("<?xml version=\"1.0\" encoding=\"1bad\"?><root/>");
+    let bad_encoding_decl_err = bad_encoding_decl..&.next().should_err().sum(@loc(), t);
+    bad_encoding_decl_err.kind.should().eq(ErrorKind.InvalidDeclaration).sum(@loc(), t);
+
+    let mut bad_standalone_decl = reader("<?xml version=\"1.0\" standalone=\"maybe\"?><root/>");
+    let bad_standalone_decl_err = bad_standalone_decl..&.next().should_err().sum(@loc(), t);
+    bad_standalone_decl_err.kind.should().eq(ErrorKind.InvalidDeclaration).sum(@loc(), t);
+
+    let mut invalid_name = reader("<1root/>");
+    let invalid_name_err = invalid_name..&.next().should_err().sum(@loc(), t);
+    invalid_name_err.kind.should().eq(ErrorKind.InvalidName).sum(@loc(), t);
+
+    let invalid_utf8_source = [3]u8.{ b'<', 0xC0, b'>' };
+    let mut invalid_utf8 = reader(invalid_utf8_source.&[0 .. 3]);
+    let invalid_utf8_err = invalid_utf8..&.next().should_err().sum(@loc(), t);
+    invalid_utf8_err.kind.should().eq(ErrorKind.InvalidName).sum(@loc(), t);
+
+    let mut unicode_name = reader("<é/>");
+    match (expect_next(unicode_name..&)) {
+        .{ Empty: element } => element.name.raw.should().eq("é").sum(@loc(), t),
+        _ => t.fail_at(@loc(), "expected unicode empty element"),
+    }
 }
 
 fn check_validation() void {
@@ -164,6 +237,18 @@ fn check_validation() void {
     match (parse.kind) {
         .{ Parse: kind } => kind.should().eq(ErrorKind.UnterminatedComment).sum(@loc(), t),
         _ => t.fail_at(@loc(), "expected parse error"),
+    }
+
+    let duplicate = xml.validate("<root a=\"1\" a=\"2\"/>", gpa).should_err().sum(@loc(), t);
+    match (duplicate.kind) {
+        .DuplicateAttribute => {},
+        _ => t.fail_at(@loc(), "expected duplicate attribute"),
+    }
+
+    let nested_duplicate = xml.validate("<root><child id=\"1\" id=\"2\"/></root>", gpa).should_err().sum(@loc(), t);
+    match (nested_duplicate.kind) {
+        .DuplicateAttribute => {},
+        _ => t.fail_at(@loc(), "expected nested duplicate attribute"),
     }
 }
 

@@ -8,11 +8,11 @@
 - [x] Entity and numeric character reference decoding.
 - [x] Single-root and tag-stack validator.
 - [x] Expect-style parser combinators for structured readers.
-- [ ] Enforce duplicate attribute errors in validation.
-- [ ] Reject `--` inside comments and invalid comment endings.
-- [ ] Reject `]]>` in ordinary character data.
-- [ ] Tighten XML name handling beyond ASCII-compatible fast path.
-- [ ] Validate XML declaration placement and declaration attributes.
+- [x] Enforce duplicate attribute errors in validation.
+- [x] Reject `--` inside comments and invalid comment endings.
+- [x] Reject `]]>` in ordinary character data.
+- [x] Tighten XML name handling beyond ASCII-compatible fast path.
+- [x] Validate XML declaration placement and declaration attributes.
 
 ## P1 API Shape
 
@@ -29,7 +29,7 @@
 - [x] Tests for entity decoding and UTF-8 char references.
 - [x] Tests for validation failures and offsets.
 - [x] Tests for expect combinators.
-- [ ] Add a broad malformed-input matrix.
+- [x] Add a broad malformed-input matrix.
 - [ ] Add generated split-position tests for EOF handling.
 - [ ] Add larger fixture tests.
 - [ ] Add round-trip tests once writer support exists.

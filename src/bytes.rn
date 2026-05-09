@@ -56,19 +56,121 @@ pub/ fn is_name_continue(byte: u8) bool {
     return is_name_start(byte) or byte == b'-' or byte == b'.' or (byte >= b'0' and byte <= b'9');
 }
 
+pub/ struct Utf8Char {
+    codepoint: u32,
+    len: usize,
+};
+
+fn is_continuation(byte: u8) bool {
+    return (byte & 0xC0) == 0x80;
+}
+
+fn read_utf8(text: &[u8], start: usize) Utf8Char!Error {
+    if (start >= #text) {
+        return .{ Err: err(.UnexpectedEof, start) };
+    }
+
+    let b0 = text.[start];
+    if (b0 < 0x80) {
+        return .{ Ok: .{ codepoint: b0 as u32, len: 1 } };
+    }
+
+    if (b0 >= 0xC2 and b0 <= 0xDF) {
+        if (start + 1 >= #text or !is_continuation(text.[start + 1])) {
+            return .{ Err: err(.InvalidName, start) };
+        }
+        let value = ((b0 & 0x1F) as u32) << 6 | ((text.[start + 1] & 0x3F) as u32);
+        return .{ Ok: .{ codepoint: value, len: 2 } };
+    }
+
+    if (b0 >= 0xE0 and b0 <= 0xEF) {
+        if (start + 2 >= #text or !is_continuation(text.[start + 1]) or !is_continuation(text.[start + 2])) {
+            return .{ Err: err(.InvalidName, start) };
+        }
+        let b1 = text.[start + 1];
+        if ((b0 == 0xE0 and b1 < 0xA0) or (b0 == 0xED and b1 >= 0xA0)) {
+            return .{ Err: err(.InvalidName, start) };
+        }
+        let value = ((b0 & 0x0F) as u32) << 12 | ((b1 & 0x3F) as u32) << 6 | ((text.[start + 2] & 0x3F) as u32);
+        return .{ Ok: .{ codepoint: value, len: 3 } };
+    }
+
+    if (b0 >= 0xF0 and b0 <= 0xF4) {
+        if (start + 3 >= #text or !is_continuation(text.[start + 1]) or !is_continuation(text.[start + 2]) or !is_continuation(text.[start + 3])) {
+            return .{ Err: err(.InvalidName, start) };
+        }
+        let b1 = text.[start + 1];
+        if ((b0 == 0xF0 and b1 < 0x90) or (b0 == 0xF4 and b1 > 0x8F)) {
+            return .{ Err: err(.InvalidName, start) };
+        }
+        let value = ((b0 & 0x07) as u32) << 18 | ((b1 & 0x3F) as u32) << 12 | ((text.[start + 2] & 0x3F) as u32) << 6 | ((text.[start + 3] & 0x3F) as u32);
+        return .{ Ok: .{ codepoint: value, len: 4 } };
+    }
+
+    return .{ Err: err(.InvalidName, start) };
+}
+
+fn is_xml_name_start_scalar(codepoint: u32) bool {
+    return codepoint == 0x3A
+        or codepoint == 0x5F
+        or (codepoint >= 0x41 and codepoint <= 0x5A)
+        or (codepoint >= 0x61 and codepoint <= 0x7A)
+        or (codepoint >= 0xC0 and codepoint <= 0xD6)
+        or (codepoint >= 0xD8 and codepoint <= 0xF6)
+        or (codepoint >= 0xF8 and codepoint <= 0x2FF)
+        or (codepoint >= 0x370 and codepoint <= 0x37D)
+        or (codepoint >= 0x37F and codepoint <= 0x1FFF)
+        or (codepoint >= 0x200C and codepoint <= 0x200D)
+        or (codepoint >= 0x2070 and codepoint <= 0x218F)
+        or (codepoint >= 0x2C00 and codepoint <= 0x2FEF)
+        or (codepoint >= 0x3001 and codepoint <= 0xD7FF)
+        or (codepoint >= 0xF900 and codepoint <= 0xFDCF)
+        or (codepoint >= 0xFDF0 and codepoint <= 0xFFFD)
+        or (codepoint >= 0x10000 and codepoint <= 0xEFFFF);
+}
+
+fn is_xml_name_continue_scalar(codepoint: u32) bool {
+    return is_xml_name_start_scalar(codepoint)
+        or codepoint == 0x2D
+        or codepoint == 0x2E
+        or (codepoint >= 0x30 and codepoint <= 0x39)
+        or codepoint == 0xB7
+        or (codepoint >= 0x0300 and codepoint <= 0x036F)
+        or (codepoint >= 0x203F and codepoint <= 0x2040);
+}
+
 pub/ fn name_end(text: &[u8], start: usize) usize!Error {
     if (start >= #text) {
         return .{ Err: err(.UnexpectedEof, start) };
     }
-    if (!is_name_start(text.[start])) {
+    let first = read_utf8(text, start).!;
+    if (!is_xml_name_start_scalar(first.codepoint)) {
         return .{ Err: err(.InvalidName, start) };
     }
 
-    let mut i = start + 1;
-    while (i < #text and is_name_continue(text.[i])) {
-        i += 1;
+    let mut i = start + first.len;
+    while (i < #text) {
+        let ch = read_utf8(text, i).!;
+        if (!is_xml_name_continue_scalar(ch.codepoint)) {
+            break;
+        }
+        i += ch.len;
     }
     return .{ Ok: i };
+}
+
+pub/ fn name_eq(text: &[u8], start: usize, stop: usize, expected: &[u8]) bool {
+    if (stop < start or stop - start != #expected) {
+        return false;
+    }
+    let mut i = 0;
+    while (i < #expected) {
+        if (text.[start + i] != expected.[i]) {
+            return false;
+        }
+        i += 1;
+    }
+    return true;
 }
 
 pub/ fn trim_right_ws(text: &[u8]) &[u8] {

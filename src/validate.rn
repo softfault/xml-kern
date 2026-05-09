@@ -1,7 +1,7 @@
 use base.coll.List;
 use base.mem.alloc.Allocator;
 
-use ..{Error, Event, Name, Reader, ValidateError, ValidateErrorKind};
+use ..{Attribute, Element, Error, Event, Name, Reader, ValidateError, ValidateErrorKind};
 
 fn validate_err(kind: ValidateErrorKind, offset: usize) ValidateError {
     return .{ kind, offset };
@@ -23,18 +23,47 @@ fn is_ignorable_text(raw: &[u8]) bool {
     return true;
 }
 
+fn has_duplicate_attributes(element: Element, alloc: &mut Allocator, event_start: usize) bool!ValidateError {
+    let attrs = List[Attribute].{}..&;
+    defer attrs.deinit(alloc);
+    let mut cursor = element.attributes();
+    while (true) {
+        let next = cursor..&.next().map_err(lift_parse).!;
+        let .{ Some: attr } = next else break;
+        let mut i = 0;
+        while (i < attrs.len()) {
+            let .{ Some: prior } = attrs.get(i) else {
+                return .{ Err: validate_err(.OutOfMemory, event_start) };
+            };
+            if (prior.name.eq(attr.name.raw)) {
+                return .{ Ok: true };
+            }
+            i += 1;
+        }
+        if (!attrs.push(alloc, attr)) {
+            return .{ Err: validate_err(.OutOfMemory, event_start) };
+        }
+    }
+    return .{ Ok: false };
+}
+
 impl &mut Reader {
     pub fn validate(alloc: &mut Allocator) void!ValidateError {
         let stack = List[Name].{}..&;
         defer stack.deinit(alloc);
         let mut saw_root = false;
         let mut closed_root = false;
+        let mut saw_declaration = false;
 
         while (true) {
+            let event_start = self.offset();
             let next = self.next().map_err(lift_parse).!;
             let .{ Some: event } = next else break;
             match (event) {
                 .{ Start: element } => {
+                    if (has_duplicate_attributes(element, alloc, event_start).!) {
+                        return .{ Err: validate_err(.DuplicateAttribute, event_start) };
+                    }
                     if (closed_root and !is_ignorable_text(element.raw)) {
                         return .{ Err: validate_err(.MultipleRoots, self.index - #element.raw) };
                     }
@@ -49,6 +78,9 @@ impl &mut Reader {
                     }
                 },
                 .{ Empty: element } => {
+                    if (has_duplicate_attributes(element, alloc, event_start).!) {
+                        return .{ Err: validate_err(.DuplicateAttribute, event_start) };
+                    }
                     if (stack.is_empty()) {
                         if (saw_root) {
                             return .{ Err: validate_err(.MultipleRoots, self.index - #element.raw) };
@@ -73,7 +105,12 @@ impl &mut Reader {
                         return .{ Err: validate_err(.MultipleRoots, self.index - #text.raw) };
                     }
                 },
-                .{ Declaration: _ } => {},
+                .{ Declaration: _ } => {
+                    if (event_start > 3 or saw_declaration or saw_root or closed_root or !stack.is_empty()) {
+                        return .{ Err: validate_err(.{ Parse: .InvalidDeclaration }, event_start) };
+                    }
+                    saw_declaration = true;
+                },
                 .{ ProcessingInstruction: _ } => {},
                 .{ Comment: _ } => {},
                 .{ CData: _ } => {},

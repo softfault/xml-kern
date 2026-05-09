@@ -1,5 +1,5 @@
 use ..{Element, EncodedText, Error, Event, Name, ProcessingInstruction, Reader};
-use ..bytes.{err, find, name_end, skip_ws, starts_with_at, trim_right_ws};
+use ..bytes.{err, find, name_end, name_eq, skip_ws, starts_with_at, trim_right_ws};
 
 fn find_tag_end(text: &[u8], start: usize) usize!Error {
     let mut index = start;
@@ -69,6 +69,28 @@ fn is_empty_tag(raw_inside: &[u8]) bool {
     return #trimmed > 0 and trimmed.[#trimmed - 1] == b'/';
 }
 
+fn validate_comment_body(text: &[u8], body_start: usize, body_end: usize) void!Error {
+    let mut index = body_start;
+    while (index + 1 < body_end) {
+        if (text.[index] == b'-' and text.[index + 1] == b'-') {
+            return .{ Err: err(.InvalidComment, index) };
+        }
+        index += 1;
+    }
+    return .{ Ok: {} };
+}
+
+fn validate_text_body(text: &[u8], start: usize, end: usize) void!Error {
+    let mut index = start;
+    while (index + 2 < end) {
+        if (text.[index] == b']' and text.[index + 1] == b']' and text.[index + 2] == b'>') {
+            return .{ Err: err(.InvalidCharacterData, index) };
+        }
+        index += 1;
+    }
+    return .{ Ok: {} };
+}
+
 fn element_from_raw(text: &[u8], tag_start: usize, tag_end: usize) Element!Error {
     let name_start = tag_start + 1;
     let name_stop = name_end(text, name_start).!;
@@ -103,6 +125,90 @@ fn parse_pi(text: &[u8], start: usize) ProcessingInstruction!Error {
         body: text.&[body_start .. end],
         raw: text.&[start .. end + 2],
     } };
+}
+
+fn is_version_value(value: &[u8]) bool {
+    if (#value < 3 or value.[0] != b'1' or value.[1] != b'.') {
+        return false;
+    }
+    let mut i = 2;
+    while (i < #value) {
+        let byte = value.[i];
+        if (byte < b'0' or byte > b'9') {
+            return false;
+        }
+        i += 1;
+    }
+    return true;
+}
+
+fn is_encoding_start(byte: u8) bool {
+    return (byte >= b'A' and byte <= b'Z') or (byte >= b'a' and byte <= b'z');
+}
+
+fn is_encoding_continue(byte: u8) bool {
+    return is_encoding_start(byte) or (byte >= b'0' and byte <= b'9') or byte == b'.' or byte == b'_' or byte == b'-';
+}
+
+fn is_encoding_value(value: &[u8]) bool {
+    if (#value == 0 or !is_encoding_start(value.[0])) {
+        return false;
+    }
+    let mut i = 1;
+    while (i < #value) {
+        if (!is_encoding_continue(value.[i])) {
+            return false;
+        }
+        i += 1;
+    }
+    return true;
+}
+
+fn parse_declaration(text: &[u8], start: usize) ProcessingInstruction!Error {
+    let pi = parse_pi(text, start).!;
+    if (!pi.target.eq("xml")) {
+        return .{ Err: err(.InvalidDeclaration, start + 2) };
+    }
+
+    let body = pi.body;
+    let mut attrs = Element.{
+        name: pi.target,
+        raw: pi.raw,
+        attributes_raw: body,
+        attributes_offset: start + #pi.raw - 2 - #body,
+    }.attributes();
+    let version = attrs..&.next().!;
+    let .{ Some: version_attr } = version else {
+        return .{ Err: err(.InvalidDeclaration, start) };
+    };
+    if (!version_attr.name.eq("version")) {
+        return .{ Err: err(.InvalidDeclaration, start) };
+    }
+    if (!is_version_value(version_attr.value.raw)) {
+        return .{ Err: err(.InvalidDeclaration, start) };
+    }
+    let mut seen_encoding = false;
+    let mut seen_standalone = false;
+    while (true) {
+        let next = attrs..&.next().!;
+        let .{ Some: attr } = next else break;
+        if (attr.name.eq("encoding")) {
+            if (seen_encoding or seen_standalone or !is_encoding_value(attr.value.raw)) {
+                return .{ Err: err(.InvalidDeclaration, start) };
+            }
+            seen_encoding = true;
+            continue;
+        }
+        if (attr.name.eq("standalone")) {
+            if (seen_standalone or !(attr.value.raw == "yes" or attr.value.raw == "no")) {
+                return .{ Err: err(.InvalidDeclaration, start) };
+            }
+            seen_standalone = true;
+            continue;
+        }
+        return .{ Err: err(.InvalidDeclaration, start) };
+    }
+    return .{ Ok: pi };
 }
 
 impl &Reader {
@@ -143,12 +249,14 @@ impl &mut Reader {
             let end = find(text, "<", start).map_or(#text, [](pos: usize) usize {
                 return pos;
             });
+            validate_text_body(text, start, end).!;
             self.index = end;
             return .{ Ok: .{ Some: .{ Text: EncodedText.{ raw: text.&[start .. end] } } } };
         }
 
         if (starts_with_at(text, start, "<!--")) {
             let end = find(text, "-->", start + 4).ok_or(err(.UnterminatedComment, start)).!;
+            validate_comment_body(text, start + 4, end).!;
             self.index = end + 3;
             return .{ Ok: .{ Some: .{ Comment: EncodedText.{ raw: text.&[start + 4 .. end] } } } };
         }
@@ -160,11 +268,21 @@ impl &mut Reader {
         }
 
         if (starts_with_at(text, start, "<?")) {
-            let pi = parse_pi(text, start).!;
-            self.index = start + #pi.raw;
-            if (pi.target.eq("xml") and start <= 3) {
+            let target_start = start + 2;
+            let target_stop = name_end(text, target_start).!;
+            if (name_eq(text, target_start, target_stop, "xml")) {
+                if (start > 3) {
+                    return .{ Err: err(.InvalidDeclaration, start) };
+                }
+                let pi = parse_declaration(text, start).!;
+                self.index = start + #pi.raw;
                 return .{ Ok: .{ Some: .{ Declaration: pi } } };
             }
+            if (name_eq(text, target_start, target_stop, "XML") or name_eq(text, target_start, target_stop, "Xml") or name_eq(text, target_start, target_stop, "xMl") or name_eq(text, target_start, target_stop, "xmL") or name_eq(text, target_start, target_stop, "XMl") or name_eq(text, target_start, target_stop, "xML") or name_eq(text, target_start, target_stop, "XmL")) {
+                return .{ Err: err(.InvalidDeclaration, target_start) };
+            }
+            let pi = parse_pi(text, start).!;
+            self.index = start + #pi.raw;
             return .{ Ok: .{ Some: .{ ProcessingInstruction: pi } } };
         }
 
