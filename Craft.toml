@@ -2,7 +2,7 @@
 name = "xml"
 version = "0.1.0"
 kern = "0.7.5"
-publish = false
+publish = true
 description = "XML parsing and decoding utilities for Kern"
 readme = "README.md"
 license = "MIT"
