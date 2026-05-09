@@ -38,7 +38,7 @@
 
 - [ ] Benchmark large `vk.xml`-sized documents.
 - [x] Add fast byte-search helpers where they matter.
-- [ ] Avoid repeated scans in attribute-heavy start tags.
+- [x] Avoid repeated scans in attribute-heavy start tags.
 - [ ] Measure decode paths with and without references.
 
 ## P4 Higher Layers

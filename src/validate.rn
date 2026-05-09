@@ -1,7 +1,7 @@
-use base.coll.List;
+use base.coll.{List, Map};
 use base.mem.alloc.Allocator;
 
-use ..{Attribute, Element, Error, Event, Name, Reader, ValidateError, ValidateErrorKind};
+use ..{Element, Error, Event, Name, Reader, ValidateError, ValidateErrorKind};
 
 fn validate_err(kind: ValidateErrorKind, offset: usize) ValidateError {
     return .{ kind, offset };
@@ -24,23 +24,16 @@ fn is_ignorable_text(raw: &[u8]) bool {
 }
 
 fn has_duplicate_attributes(element: Element, alloc: &mut Allocator, event_start: usize) bool!ValidateError {
-    let attrs = List[Attribute].{}..&;
-    defer attrs.deinit(alloc);
+    let seen = Map[&[u8], bool].{}..&;
+    defer seen.deinit(alloc);
     let mut cursor = element.attributes();
     while (true) {
         let next = cursor..&.next().map_err(lift_parse).!;
         let .{ Some: attr } = next else break;
-        let mut i = 0;
-        while (i < attrs.len()) {
-            let .{ Some: prior } = attrs.get(i) else {
-                return .{ Err: validate_err(.OutOfMemory, event_start) };
-            };
-            if (prior.name.eq(attr.name.raw)) {
-                return .{ Ok: true };
-            }
-            i += 1;
+        if (seen.get_ptr(attr.name.raw).is_some()) {
+            return .{ Ok: true };
         }
-        if (!attrs.push(alloc, attr)) {
+        if (!seen.insert(alloc, attr.name.raw, true)) {
             return .{ Err: validate_err(.OutOfMemory, event_start) };
         }
     }

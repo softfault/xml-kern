@@ -267,6 +267,12 @@ fn check_validation() void {
         .DuplicateAttribute => {},
         _ => t.fail_at(@loc(), "expected nested duplicate attribute"),
     }
+
+    let many_attrs = xml.validate("<root a0=\"0\" a1=\"1\" a2=\"2\" a3=\"3\" a4=\"4\" a5=\"5\" a6=\"6\" a7=\"7\" a8=\"8\" a9=\"9\" a10=\"10\" a11=\"11\" a12=\"12\" a13=\"13\" a14=\"14\" a7=\"dup\"/>", gpa).should_err().sum(@loc(), t);
+    match (many_attrs.kind) {
+        .DuplicateAttribute => {},
+        _ => t.fail_at(@loc(), "expected duplicate among many attributes"),
+    }
 }
 
 fn check_expect_combinators() void {
