@@ -1,0 +1,138 @@
+use base.coll.{List, String, list, string};
+use base.mem.alloc.Allocator;
+
+use ..{
+    DocumentIndex,
+    ErrorKind,
+    IndexErrorKind,
+    IndexedNode,
+    OwnedDocument,
+    OwnedElement,
+    OwnedError,
+    OwnedErrorKind,
+    OwnedNode,
+    ValidateErrorKind,
+    build_index,
+};
+
+fn owned_err(kind: OwnedErrorKind, offset: usize) OwnedError {
+    return .{ kind, offset };
+}
+
+fn lift_index(err: ..IndexError) OwnedError {
+    match (err.kind) {
+        .{ Parse: kind } => return .{ kind: .{ Parse: kind }, offset: err.offset },
+        .{ Validate: kind } => return .{ kind: .{ Validate: kind }, offset: err.offset },
+        .OutOfMemory => return .{ kind: .OutOfMemory, offset: err.offset },
+    }
+}
+
+fn clone_text(alloc: &mut Allocator, text: &[u8], offset: usize) String!OwnedError {
+    let mut out = string();
+    if (!out..&.clone_from_exact(alloc, text)) {
+        return .{ Err: owned_err(.OutOfMemory, offset) };
+    }
+    return .{ Ok: out };
+}
+
+fn clone_element(alloc: &mut Allocator, node: IndexedNode) OwnedElement!OwnedError {
+    let name = clone_text(alloc, node.element.name.raw, 0).!;
+    let raw = clone_text(alloc, node.element.raw, 0).!;
+    let attributes_raw = clone_text(alloc, node.element.attributes_raw, 0).!;
+    return .{ Ok: .{ name, raw, attributes_raw } };
+}
+
+fn deinit_element(alloc: &mut Allocator, element: &mut OwnedElement) void {
+    element.name..&.deinit(alloc);
+    element.raw..&.deinit(alloc);
+    element.attributes_raw..&.deinit(alloc);
+    element.* = OwnedElement.{ name: string(), raw: string(), attributes_raw: string() };
+}
+
+fn push_owned_node(out: &mut OwnedDocument, alloc: &mut Allocator, source: IndexedNode) void!OwnedError {
+    let element = clone_element(alloc, source).!;
+    let node = OwnedNode.{
+        element: element,
+        parent: source.parent,
+        first_child: source.first_child,
+        last_child: source.last_child,
+        next_sibling: source.next_sibling,
+        depth: source.depth,
+    };
+    if (!out.nodes..&.push(alloc, node)) {
+        return .{ Err: owned_err(.OutOfMemory, 0) };
+    }
+    return .{ Ok: {} };
+}
+
+impl &mut OwnedDocument {
+    pub fn deinit(alloc: &mut Allocator) void {
+        let mut i = usize.{0};
+        while (i < self.nodes.len()) {
+            let .{ Some: node } = self.nodes..&.get_ptr(i) else break;
+            deinit_element(alloc, node.element..&);
+            i += 1;
+        }
+        self.nodes..&.deinit(alloc);
+        self.* = OwnedDocument.{};
+    }
+}
+
+impl &OwnedDocument {
+    pub fn len() usize {
+        return self.nodes.&.len();
+    }
+
+    pub fn is_empty() bool {
+        return self.nodes.&.is_empty();
+    }
+
+    pub fn root() ?usize {
+        return self.root_index;
+    }
+
+    pub fn get(index: usize) ?OwnedNode {
+        return self.nodes.&.get(index);
+    }
+
+    pub fn first_child(index: usize) ?usize {
+        let .{ Some: node } = self.get(index) else return .None;
+        return node.first_child;
+    }
+
+    pub fn next_sibling(index: usize) ?usize {
+        let .{ Some: node } = self.get(index) else return .None;
+        return node.next_sibling;
+    }
+
+    pub fn first_child_named(index: usize, name: &[u8]) ?usize {
+        let mut current = self.first_child(index);
+        while (true) {
+            let .{ Some: node_index } = current else return .None;
+            let .{ Some: node } = self.get(node_index) else return .None;
+            if (node.element.name.&.as_str() == name) {
+                return .{ Some: node_index };
+            }
+            current = node.next_sibling;
+        }
+        return .None;
+    }
+}
+
+pub fn clone_owned_document(source: &[u8], alloc: &mut Allocator) OwnedDocument!OwnedError {
+    let mut index = build_index(source, alloc).map_err(lift_index).!;
+    defer index..&.deinit(alloc);
+
+    let mut out = OwnedDocument.{};
+    out.root_index = index.&.root();
+    let mut i = usize.{0};
+    while (i < index.&.len()) {
+        let .{ Some: node } = index.&.get(i) else {
+            out..&.deinit(alloc);
+            return .{ Err: owned_err(.OutOfMemory, 0) };
+        };
+        push_owned_node(out..&, alloc, node).!;
+        i += 1;
+    }
+    return .{ Ok: out };
+}

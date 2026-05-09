@@ -418,6 +418,25 @@ fn check_render_round_trip() void {
     out.&.as_str().should().eq(source).sum(@loc(), t);
 }
 
+fn check_owned_document_tree() void {
+    let t = test.report(io.stderr())..&;
+    let page = page()..&;
+    let gpa = gpa().on(page)..&;
+    let doc = xml.clone_owned_document("<root><item id=\"a\"><leaf/></item><item id=\"b\"/></root>", gpa).should_ok().sum(@loc(), t)..&;
+    defer doc.deinit(gpa);
+
+    doc.len().should().eq(4).sum(@loc(), t);
+    let root_id = doc.root().should_some().sum(@loc(), t);
+    let root = doc.get(root_id).should_some().sum(@loc(), t);
+    root.element.name.&.as_str().should().eq("root").sum(@loc(), t);
+    let item_id = doc.first_child_named(root_id, "item").should_some().sum(@loc(), t);
+    let item = doc.get(item_id).should_some().sum(@loc(), t);
+    item.element.raw.&.as_str().should().eq("<item id=\"a\">").sum(@loc(), t);
+    let leaf_id = doc.first_child_named(item_id, "leaf").should_some().sum(@loc(), t);
+    let leaf = doc.get(leaf_id).should_some().sum(@loc(), t);
+    leaf.element.name.&.as_str().should().eq("leaf").sum(@loc(), t);
+}
+
 fn check_eof_split_positions() void {
     let t = test.report(io.stderr())..&;
 
@@ -467,6 +486,7 @@ fn main() i32 {
     check_namespace_views();
     check_borrowed_index();
     check_render_round_trip();
+    check_owned_document_tree();
     check_eof_split_positions();
     return 0;
 }

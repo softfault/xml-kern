@@ -16,10 +16,12 @@ mod namespace;
 mod validate;
 mod index;
 mod writer;
+mod owned;
 
 pub use .stream.drain_events;
 pub use .index.build_index;
 pub use .writer.render_document;
+pub use .owned.clone_owned_document;
 
 pub enum ErrorKind {
     UnexpectedEof,
@@ -106,6 +108,17 @@ pub enum RenderErrorKind {
 
 pub struct RenderError {
     pub kind: RenderErrorKind,
+    pub offset: usize,
+};
+
+pub enum OwnedErrorKind {
+    Parse: ErrorKind,
+    Validate: ValidateErrorKind,
+    OutOfMemory,
+};
+
+pub struct OwnedError {
+    pub kind: OwnedErrorKind,
     pub offset: usize,
 };
 
@@ -216,6 +229,26 @@ pub struct IndexedNode {
 
 pub struct DocumentIndex {
     pub/ nodes: List[IndexedNode] = List[IndexedNode].{},
+    pub/ root_index: ?usize = .None,
+};
+
+pub struct OwnedElement {
+    pub name: base.coll.String,
+    pub raw: base.coll.String,
+    pub attributes_raw: base.coll.String,
+};
+
+pub struct OwnedNode {
+    pub element: OwnedElement,
+    pub parent: ?usize,
+    pub first_child: ?usize,
+    pub last_child: ?usize,
+    pub next_sibling: ?usize,
+    pub depth: usize,
+};
+
+pub struct OwnedDocument {
+    pub/ nodes: List[OwnedNode] = List[OwnedNode].{},
     pub/ root_index: ?usize = .None,
 };
 
@@ -360,6 +393,24 @@ impl &RenderErrorKind : Formatable {
 }
 
 impl &RenderError : Formatable {
+    pub fn write_to(writer: &mut Write) void {
+        self.kind.&.write_to(writer);
+        _ = writer.write(" at byte ");
+        self.offset.&.write_to(writer);
+    }
+}
+
+impl &OwnedErrorKind : Formatable {
+    pub fn write_to(writer: &mut Write) void {
+        match (self.*) {
+            .{ Parse: kind } => kind.&.write_to(writer),
+            .{ Validate: kind } => kind.&.write_to(writer),
+            .OutOfMemory => _ = writer.write("out of memory"),
+        }
+    }
+}
+
+impl &OwnedError : Formatable {
     pub fn write_to(writer: &mut Write) void {
         self.kind.&.write_to(writer);
         _ = writer.write(" at byte ");
