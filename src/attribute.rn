@@ -1,0 +1,59 @@
+use ..{Attribute, AttributeCursor, EncodedText, Error, Name};
+use ..bytes.{err, name_end, skip_ws};
+
+impl &AttributeCursor {
+    pub fn source() &[u8] {
+        return self.raw;
+    }
+
+    pub fn is_done() bool {
+        return self.done;
+    }
+}
+
+impl &mut AttributeCursor {
+    pub fn next() ?Attribute!Error {
+        if (self.done) {
+            return .{ Ok: .None };
+        }
+
+        let text = self.raw;
+        let mut index = skip_ws(text, self.index);
+        if (index >= #text) {
+            self.index = index;
+            self.done = true;
+            return .{ Ok: .None };
+        }
+
+        let name_start = index;
+        let name_stop = name_end(text, name_start).map_err([](parse_err: Error) Error {
+            return .{ kind: parse_err.kind, offset: parse_err.offset };
+        }).!;
+        index = skip_ws(text, name_stop);
+        if (index >= #text or text.[index] != b'=') {
+            return .{ Err: err(.InvalidAttribute, self.offset_base + index) };
+        }
+        index = skip_ws(text, index + 1);
+        if (index >= #text or (text.[index] != b'"' and text.[index] != b'\'')) {
+            return .{ Err: err(.InvalidAttribute, self.offset_base + index) };
+        }
+
+        let quote = text.[index];
+        let value_start = index + 1;
+        index = value_start;
+        while (index < #text and text.[index] != quote) {
+            index += 1;
+        }
+        if (index >= #text) {
+            return .{ Err: err(.InvalidAttribute, self.offset_base + value_start) };
+        }
+
+        let raw_stop = index + 1;
+        self.index = raw_stop;
+        return .{ Ok: .{ Some: Attribute.{
+            name: Name.{ raw: text.&[name_start .. name_stop] },
+            value: EncodedText.{ raw: text.&[value_start .. index] },
+            raw: text.&[name_start .. raw_stop],
+        } } };
+    }
+}

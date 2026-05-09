@@ -1,0 +1,92 @@
+use base.coll.List;
+use base.mem.alloc.Allocator;
+
+use ..{Error, Event, Name, Reader, ValidateError, ValidateErrorKind};
+
+fn validate_err(kind: ValidateErrorKind, offset: usize) ValidateError {
+    return .{ kind, offset };
+}
+
+fn lift_parse(err: Error) ValidateError {
+    return .{ kind: .{ Parse: err.kind }, offset: err.offset };
+}
+
+fn is_ignorable_text(raw: &[u8]) bool {
+    let mut i = 0;
+    while (i < #raw) {
+        let byte = raw.[i];
+        if (!(byte == b' ' or byte == b'\n' or byte == b'\r' or byte == b'\t')) {
+            return false;
+        }
+        i += 1;
+    }
+    return true;
+}
+
+impl &mut Reader {
+    pub fn validate(alloc: &mut Allocator) void!ValidateError {
+        let stack = List[Name].{}..&;
+        defer stack.deinit(alloc);
+        let mut saw_root = false;
+        let mut closed_root = false;
+
+        while (true) {
+            let next = self.next().map_err(lift_parse).!;
+            let .{ Some: event } = next else break;
+            match (event) {
+                .{ Start: element } => {
+                    if (closed_root and !is_ignorable_text(element.raw)) {
+                        return .{ Err: validate_err(.MultipleRoots, self.index - #element.raw) };
+                    }
+                    if (stack.is_empty()) {
+                        if (saw_root) {
+                            return .{ Err: validate_err(.MultipleRoots, self.index - #element.raw) };
+                        }
+                        saw_root = true;
+                    }
+                    if (!stack.push(alloc, element.name)) {
+                        return .{ Err: validate_err(.OutOfMemory, self.index - #element.raw) };
+                    }
+                },
+                .{ Empty: element } => {
+                    if (stack.is_empty()) {
+                        if (saw_root) {
+                            return .{ Err: validate_err(.MultipleRoots, self.index - #element.raw) };
+                        }
+                        saw_root = true;
+                        closed_root = true;
+                    }
+                },
+                .{ End: name } => {
+                    let .{ Some: open } = stack.pop() else {
+                        return .{ Err: validate_err(.MismatchedEnd, self.index) };
+                    };
+                    if (!open.eq(name.raw)) {
+                        return .{ Err: validate_err(.MismatchedEnd, self.index) };
+                    }
+                    if (stack.is_empty()) {
+                        closed_root = true;
+                    }
+                },
+                .{ Text: text } => {
+                    if (closed_root and !is_ignorable_text(text.raw)) {
+                        return .{ Err: validate_err(.MultipleRoots, self.index - #text.raw) };
+                    }
+                },
+                .{ Declaration: _ } => {},
+                .{ ProcessingInstruction: _ } => {},
+                .{ Comment: _ } => {},
+                .{ CData: _ } => {},
+                .{ Doctype: _ } => {},
+            }
+        }
+
+        if (!stack.is_empty()) {
+            return .{ Err: validate_err(.UnclosedElement, self.index) };
+        }
+        if (!saw_root) {
+            return .{ Err: validate_err(.MissingRoot, self.index) };
+        }
+        return .{ Ok: {} };
+    }
+}

@@ -1,0 +1,91 @@
+use ..{Element, Error, Event, ExpectError, ExpectErrorKind, Name, Reader};
+
+fn expect_err(kind: ExpectErrorKind, offset: usize) ExpectError {
+    return .{ kind, offset };
+}
+
+fn lift_parse(err: Error) ExpectError {
+    return .{ kind: .{ Parse: err.kind }, offset: err.offset };
+}
+
+fn is_ignorable(event: Event) bool {
+    match (event) {
+        .{ Text: text } => {
+            let mut i = 0;
+            while (i < #text.raw) {
+                let byte = text.raw.[i];
+                if (!(byte == b' ' or byte == b'\n' or byte == b'\r' or byte == b'\t')) {
+                    return false;
+                }
+                i += 1;
+            }
+            return true;
+        },
+        .{ Comment: _ } => return true,
+        .{ ProcessingInstruction: _ } => return true,
+        _ => return false,
+    }
+}
+
+impl &mut Reader {
+    pub fn next_significant() ?Event!ExpectError {
+        while (true) {
+            let next = self.next().map_err(lift_parse).!;
+            let .{ Some: event } = next else return .{ Ok: .None };
+            if (!is_ignorable(event)) {
+                return .{ Ok: .{ Some: event } };
+            }
+        }
+    }
+
+    pub fn expect_start(name: &[u8]) Element!ExpectError {
+        let offset = self.offset();
+        let next = self.next_significant().!;
+        let .{ Some: event } = next else {
+            return .{ Err: expect_err(.UnexpectedEof, offset) };
+        };
+        match (event) {
+            .{ Start: element } => {
+                if (!element.name.eq(name)) {
+                    return .{ Err: expect_err(.NameMismatch, offset) };
+                }
+                return .{ Ok: element };
+            },
+            _ => return .{ Err: expect_err(.UnexpectedEvent, offset) },
+        }
+    }
+
+    pub fn expect_empty(name: &[u8]) Element!ExpectError {
+        let offset = self.offset();
+        let next = self.next_significant().!;
+        let .{ Some: event } = next else {
+            return .{ Err: expect_err(.UnexpectedEof, offset) };
+        };
+        match (event) {
+            .{ Empty: element } => {
+                if (!element.name.eq(name)) {
+                    return .{ Err: expect_err(.NameMismatch, offset) };
+                }
+                return .{ Ok: element };
+            },
+            _ => return .{ Err: expect_err(.UnexpectedEvent, offset) },
+        }
+    }
+
+    pub fn expect_end(name: &[u8]) Name!ExpectError {
+        let offset = self.offset();
+        let next = self.next_significant().!;
+        let .{ Some: event } = next else {
+            return .{ Err: expect_err(.UnexpectedEof, offset) };
+        };
+        match (event) {
+            .{ End: end_name } => {
+                if (!end_name.eq(name)) {
+                    return .{ Err: expect_err(.NameMismatch, offset) };
+                }
+                return .{ Ok: end_name };
+            },
+            _ => return .{ Err: expect_err(.UnexpectedEvent, offset) },
+        }
+    }
+}

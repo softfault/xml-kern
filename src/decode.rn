@@ -1,0 +1,223 @@
+use base.coll.String;
+use base.mem.alloc.Allocator;
+
+use ..{DecodeError, DecodeErrorKind, EncodedText};
+
+fn decode_err(kind: DecodeErrorKind, offset: usize) DecodeError {
+    return .{ kind, offset };
+}
+
+fn hex_value(byte: u8) ?u32 {
+    if (byte >= b'0' and byte <= b'9') return .{ Some: (byte - b'0') as u32 };
+    if (byte >= b'a' and byte <= b'f') return .{ Some: (byte - b'a') as u32 + 10 };
+    if (byte >= b'A' and byte <= b'F') return .{ Some: (byte - b'A') as u32 + 10 };
+    return .None;
+}
+
+fn dec_value(byte: u8) ?u32 {
+    if (byte >= b'0' and byte <= b'9') return .{ Some: (byte - b'0') as u32 };
+    return .None;
+}
+
+fn is_valid_codepoint(codepoint: u32) bool {
+    return codepoint <= 0x10FFFF and !(codepoint >= 0xD800 and codepoint <= 0xDFFF);
+}
+
+fn utf8_len(codepoint: u32) usize!DecodeError {
+    if (!is_valid_codepoint(codepoint)) {
+        return .{ Err: decode_err(.InvalidCodepoint, 0) };
+    }
+    if (codepoint <= 0x7F) return .{ Ok: 1 };
+    if (codepoint <= 0x7FF) return .{ Ok: 2 };
+    if (codepoint <= 0xFFFF) return .{ Ok: 3 };
+    return .{ Ok: 4 };
+}
+
+fn write_utf8_at(codepoint: u32, out: &mut [u8], index: usize) usize!DecodeError {
+    let len = utf8_len(codepoint).!;
+    if (#out - index < len) {
+        return .{ Err: decode_err(.BufferTooSmall, index) };
+    }
+    if (len == 1) {
+        out.[index] = codepoint as u8;
+        return .{ Ok: index + 1 };
+    }
+    if (len == 2) {
+        out.[index] = 0xC0 | ((codepoint >> 6) as u8);
+        out.[index + 1] = 0x80 | ((codepoint & 0x3F) as u8);
+        return .{ Ok: index + 2 };
+    }
+    if (len == 3) {
+        out.[index] = 0xE0 | ((codepoint >> 12) as u8);
+        out.[index + 1] = 0x80 | (((codepoint >> 6) & 0x3F) as u8);
+        out.[index + 2] = 0x80 | ((codepoint & 0x3F) as u8);
+        return .{ Ok: index + 3 };
+    }
+    out.[index] = 0xF0 | ((codepoint >> 18) as u8);
+    out.[index + 1] = 0x80 | (((codepoint >> 12) & 0x3F) as u8);
+    out.[index + 2] = 0x80 | (((codepoint >> 6) & 0x3F) as u8);
+    out.[index + 3] = 0x80 | ((codepoint & 0x3F) as u8);
+    return .{ Ok: index + 4 };
+}
+
+fn named_entity(text: &[u8]) ?u8 {
+    if (text == "amp") return .{ Some: b'&' };
+    if (text == "lt") return .{ Some: b'<' };
+    if (text == "gt") return .{ Some: b'>' };
+    if (text == "apos") return .{ Some: b'\'' };
+    if (text == "quot") return .{ Some: b'"' };
+    return .None;
+}
+
+fn parse_char_ref(text: &[u8], offset: usize) u32!DecodeError {
+    if (#text == 0 or text.[0] != b'#') {
+        return .{ Err: decode_err(.InvalidReference, offset) };
+    }
+
+    let hex = #text >= 2 and (text.[1] == b'x' or text.[1] == b'X');
+    let mut index = if (hex) 2 else 1;
+    if (index >= #text) {
+        return .{ Err: decode_err(.InvalidReference, offset) };
+    }
+
+    let mut value = u32.{0};
+    while (index < #text) {
+        let digit = if (hex) hex_value(text.[index]) else dec_value(text.[index]);
+        let .{ Some: d } = digit else {
+            return .{ Err: decode_err(.InvalidReference, offset + index) };
+        };
+        value = if (hex) value * 16 + d else value * 10 + d;
+        if (value > 0x10FFFF) {
+            return .{ Err: decode_err(.InvalidCodepoint, offset + index) };
+        }
+        index += 1;
+    }
+    if (!is_valid_codepoint(value)) {
+        return .{ Err: decode_err(.InvalidCodepoint, offset) };
+    }
+    return .{ Ok: value };
+}
+
+fn reference_end(text: &[u8], amp: usize) usize!DecodeError {
+    let mut index = amp + 1;
+    while (index < #text and text.[index] != b';') {
+        index += 1;
+    }
+    if (index >= #text) {
+        return .{ Err: decode_err(.UnterminatedReference, amp) };
+    }
+    return .{ Ok: index };
+}
+
+impl EncodedText {
+    pub fn contains_reference() bool {
+        let mut index = 0;
+        while (index < #self.raw) {
+            if (self.raw.[index] == b'&') {
+                return true;
+            }
+            index += 1;
+        }
+        return false;
+    }
+
+    pub fn decoded_size() usize!DecodeError {
+        let mut size = 0;
+        let mut index = 0;
+        while (index < #self.raw) {
+            if (self.raw.[index] != b'&') {
+                size += 1;
+                index += 1;
+                continue;
+            }
+
+            let end = reference_end(self.raw, index).!;
+            let body = self.raw.&[index + 1 .. end];
+            if (#body > 0 and body.[0] == b'#') {
+                let codepoint = parse_char_ref(body, index + 1).!;
+                size += utf8_len(codepoint).!;
+            } else {
+                let .{ Some: _ } = named_entity(body) else {
+                    return .{ Err: decode_err(.UnknownEntity, index) };
+                };
+                size += 1;
+            }
+            index = end + 1;
+        }
+        return .{ Ok: size };
+    }
+
+    pub fn write_decoded(out: &mut [u8]) usize!DecodeError {
+        let mut written = 0;
+        let mut index = 0;
+        while (index < #self.raw) {
+            if (self.raw.[index] != b'&') {
+                if (written >= #out) {
+                    return .{ Err: decode_err(.BufferTooSmall, index) };
+                }
+                out.[written] = self.raw.[index];
+                written += 1;
+                index += 1;
+                continue;
+            }
+
+            let end = reference_end(self.raw, index).!;
+            let body = self.raw.&[index + 1 .. end];
+            if (#body > 0 and body.[0] == b'#') {
+                let codepoint = parse_char_ref(body, index + 1).!;
+                written = write_utf8_at(codepoint, out, written).!;
+            } else {
+                let .{ Some: value } = named_entity(body) else {
+                    return .{ Err: decode_err(.UnknownEntity, index) };
+                };
+                if (written >= #out) {
+                    return .{ Err: decode_err(.BufferTooSmall, index) };
+                }
+                out.[written] = value;
+                written += 1;
+            }
+            index = end + 1;
+        }
+        return .{ Ok: written };
+    }
+
+    pub fn clone_decoded(alloc: &mut Allocator) String!DecodeError {
+        let size = self.decoded_size().!;
+        let mut out = String.{};
+        if (!out..&.reserve(alloc, size)) {
+            return .{ Err: decode_err(.OutOfMemory, 0) };
+        }
+        let mut buffer = [4]u8.{undef};
+        let mut index = 0;
+        while (index < #self.raw) {
+            if (self.raw.[index] != b'&') {
+                if (!out..&.push_char(alloc, self.raw.[index])) {
+                    out..&.deinit(alloc);
+                    return .{ Err: decode_err(.OutOfMemory, index) };
+                }
+                index += 1;
+                continue;
+            }
+
+            let end = reference_end(self.raw, index).!;
+            let body = self.raw.&[index + 1 .. end];
+            let written = if (#body > 0 and body.[0] == b'#') {
+                let codepoint = parse_char_ref(body, index + 1).!;
+                write_utf8_at(codepoint, buffer..&[0 .. 4], 0).!
+            } else {
+                let .{ Some: value } = named_entity(body) else {
+                    out..&.deinit(alloc);
+                    return .{ Err: decode_err(.UnknownEntity, index) };
+                };
+                buffer.[0] = value;
+                1
+            };
+            if (!out..&.push_str(alloc, buffer.&[0 .. written])) {
+                out..&.deinit(alloc);
+                return .{ Err: decode_err(.OutOfMemory, index) };
+            }
+            index = end + 1;
+        }
+        return .{ Ok: out };
+    }
+}

@@ -1,0 +1,199 @@
+use ..{Element, EncodedText, Error, Event, Name, ProcessingInstruction, Reader};
+use ..bytes.{err, find, name_end, skip_ws, starts_with_at, trim_right_ws};
+
+fn find_tag_end(text: &[u8], start: usize) usize!Error {
+    let mut index = start;
+    let mut quote = u8.{0};
+    while (index < #text) {
+        let byte = text.[index];
+        if (quote != 0) {
+            if (byte == quote) {
+                quote = 0;
+            }
+            index += 1;
+            continue;
+        }
+        if (byte == b'"' or byte == b'\'') {
+            quote = byte;
+            index += 1;
+            continue;
+        }
+        if (byte == b'>') {
+            return .{ Ok: index };
+        }
+        index += 1;
+    }
+    return .{ Err: err(.UnterminatedTag, start) };
+}
+
+fn find_doctype_end(text: &[u8], start: usize) usize!Error {
+    let mut index = start;
+    let mut quote = u8.{0};
+    let mut subset_depth = 0;
+    while (index < #text) {
+        let byte = text.[index];
+        if (quote != 0) {
+            if (byte == quote) {
+                quote = 0;
+            }
+            index += 1;
+            continue;
+        }
+        if (byte == b'"' or byte == b'\'') {
+            quote = byte;
+            index += 1;
+            continue;
+        }
+        if (byte == b'[') {
+            subset_depth += 1;
+            index += 1;
+            continue;
+        }
+        if (byte == b']') {
+            if (subset_depth > 0) {
+                subset_depth -= 1;
+            }
+            index += 1;
+            continue;
+        }
+        if (byte == b'>' and subset_depth == 0) {
+            return .{ Ok: index };
+        }
+        index += 1;
+    }
+    return .{ Err: err(.UnterminatedDoctype, start) };
+}
+
+fn is_empty_tag(raw_inside: &[u8]) bool {
+    let trimmed = trim_right_ws(raw_inside);
+    return #trimmed > 0 and trimmed.[#trimmed - 1] == b'/';
+}
+
+fn element_from_raw(text: &[u8], tag_start: usize, tag_end: usize) Element!Error {
+    let name_start = tag_start + 1;
+    let name_stop = name_end(text, name_start).!;
+    let attr_start = name_stop;
+    let raw_inside = text.&[name_start .. tag_end];
+    let attr_end = if (is_empty_tag(raw_inside)) tag_end - 1 else tag_end;
+    return .{ Ok: .{
+        name: Name.{ raw: text.&[name_start .. name_stop] },
+        raw: text.&[tag_start .. tag_end + 1],
+        attributes_raw: text.&[attr_start .. attr_end],
+        attributes_offset: attr_start,
+    } };
+}
+
+fn parse_end(text: &[u8], tag_start: usize) Name!Error {
+    let name_start = tag_start + 2;
+    let name_stop = name_end(text, name_start).!;
+    let index = skip_ws(text, name_stop);
+    if (index >= #text or text.[index] != b'>') {
+        return .{ Err: err(.UnterminatedTag, tag_start) };
+    }
+    return .{ Ok: Name.{ raw: text.&[name_start .. name_stop] } };
+}
+
+fn parse_pi(text: &[u8], start: usize) ProcessingInstruction!Error {
+    let end = find(text, "?>", start + 2).ok_or(err(.UnterminatedProcessingInstruction, start)).!;
+    let target_start = start + 2;
+    let target_stop = name_end(text, target_start).!;
+    let body_start = skip_ws(text, target_stop);
+    return .{ Ok: .{
+        target: Name.{ raw: text.&[target_start .. target_stop] },
+        body: text.&[body_start .. end],
+        raw: text.&[start .. end + 2],
+    } };
+}
+
+impl &Reader {
+    pub fn source() &[u8] {
+        return self.source;
+    }
+
+    pub fn offset() usize {
+        return self.index;
+    }
+
+    pub fn is_done() bool {
+        return self.done;
+    }
+}
+
+impl &mut Reader {
+    pub fn next() ?Event!Error {
+        if (self.done) {
+            return .{ Ok: .None };
+        }
+
+        if (!self.started) {
+            self.started = true;
+            if (#self.source >= 3 and self.source.[0] == 0xEF and self.source.[1] == 0xBB and self.source.[2] == 0xBF) {
+                self.index = 3;
+            }
+        }
+
+        if (self.index >= #self.source) {
+            self.done = true;
+            return .{ Ok: .None };
+        }
+
+        let text = self.source;
+        let start = self.index;
+        if (text.[start] != b'<') {
+            let end = find(text, "<", start).map_or(#text, [](pos: usize) usize {
+                return pos;
+            });
+            self.index = end;
+            return .{ Ok: .{ Some: .{ Text: EncodedText.{ raw: text.&[start .. end] } } } };
+        }
+
+        if (starts_with_at(text, start, "<!--")) {
+            let end = find(text, "-->", start + 4).ok_or(err(.UnterminatedComment, start)).!;
+            self.index = end + 3;
+            return .{ Ok: .{ Some: .{ Comment: EncodedText.{ raw: text.&[start + 4 .. end] } } } };
+        }
+
+        if (starts_with_at(text, start, "<![CDATA[")) {
+            let end = find(text, "]]>", start + 9).ok_or(err(.UnterminatedCData, start)).!;
+            self.index = end + 3;
+            return .{ Ok: .{ Some: .{ CData: EncodedText.{ raw: text.&[start + 9 .. end] } } } };
+        }
+
+        if (starts_with_at(text, start, "<?")) {
+            let pi = parse_pi(text, start).!;
+            self.index = start + #pi.raw;
+            if (pi.target.eq("xml") and start <= 3) {
+                return .{ Ok: .{ Some: .{ Declaration: pi } } };
+            }
+            return .{ Ok: .{ Some: .{ ProcessingInstruction: pi } } };
+        }
+
+        if (starts_with_at(text, start, "<!DOCTYPE")) {
+            let end = find_doctype_end(text, start + #"<!DOCTYPE").!;
+            self.index = end + 1;
+            return .{ Ok: .{ Some: .{ Doctype: EncodedText.{ raw: text.&[start + #"<!DOCTYPE" .. end] } } } };
+        }
+
+        if (starts_with_at(text, start, "</")) {
+            let name = parse_end(text, start).!;
+            let end = find_tag_end(text, start + 2).!;
+            self.index = end + 1;
+            return .{ Ok: .{ Some: .{ End: name } } };
+        }
+
+        if (start + 1 >= #text) {
+            return .{ Err: err(.UnexpectedEof, start) };
+        }
+        if (!starts_with_at(text, start, "<") or starts_with_at(text, start, "<!")) {
+            return .{ Err: err(.UnexpectedByte, start) };
+        }
+
+        let end = find_tag_end(text, start + 1).!;
+        let element = element_from_raw(text, start, end).!;
+        self.index = end + 1;
+        if (is_empty_tag(text.&[start + 1 .. end])) {
+            return .{ Ok: .{ Some: .{ Empty: element } } };
+        }
+        return .{ Ok: .{ Some: .{ Start: element } } };
+    }
+}

@@ -1,0 +1,80 @@
+use ..Error;
+use ..ErrorKind;
+
+pub/ fn err(kind: ErrorKind, offset: usize) Error {
+    return .{ kind, offset };
+}
+
+pub/ fn is_ws(byte: u8) bool {
+    return byte == b' ' or byte == b'\n' or byte == b'\r' or byte == b'\t';
+}
+
+pub/ fn skip_ws(text: &[u8], index: usize) usize {
+    let mut i = index;
+    while (i < #text and is_ws(text.[i])) {
+        i += 1;
+    }
+    return i;
+}
+
+pub/ fn starts_with_at(text: &[u8], index: usize, needle: &[u8]) bool {
+    if (#text - index < #needle) {
+        return false;
+    }
+    let mut i = 0;
+    while (i < #needle) {
+        if (text.[index + i] != needle.[i]) {
+            return false;
+        }
+        i += 1;
+    }
+    return true;
+}
+
+pub/ fn find(text: &[u8], needle: &[u8], start: usize) ?usize {
+    if (#needle == 0) {
+        return .{ Some: start };
+    }
+    if (#text < #needle or start > #text - #needle) {
+        return .None;
+    }
+    let mut i = start;
+    while (i <= #text - #needle) {
+        if (starts_with_at(text, i, needle)) {
+            return .{ Some: i };
+        }
+        i += 1;
+    }
+    return .None;
+}
+
+pub/ fn is_name_start(byte: u8) bool {
+    return byte == b':' or byte == b'_' or (byte >= b'A' and byte <= b'Z') or (byte >= b'a' and byte <= b'z') or byte >= 0x80;
+}
+
+pub/ fn is_name_continue(byte: u8) bool {
+    return is_name_start(byte) or byte == b'-' or byte == b'.' or (byte >= b'0' and byte <= b'9');
+}
+
+pub/ fn name_end(text: &[u8], start: usize) usize!Error {
+    if (start >= #text) {
+        return .{ Err: err(.UnexpectedEof, start) };
+    }
+    if (!is_name_start(text.[start])) {
+        return .{ Err: err(.InvalidName, start) };
+    }
+
+    let mut i = start + 1;
+    while (i < #text and is_name_continue(text.[i])) {
+        i += 1;
+    }
+    return .{ Ok: i };
+}
+
+pub/ fn trim_right_ws(text: &[u8]) &[u8] {
+    let mut end = #text;
+    while (end > 0 and is_ws(text.[end - 1])) {
+        end -= 1;
+    }
+    return text.&[0 .. end];
+}

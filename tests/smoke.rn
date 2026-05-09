@@ -1,0 +1,209 @@
+use base.mem.alloc.GPA;
+use base.test;
+use std.io;
+use sys.mem.Page;
+use xml.{DecodeErrorKind, ErrorKind, Event, ExpectErrorKind, ValidateErrorKind, reader};
+
+fn expect_next(r: &mut xml.Reader) Event {
+    let t = test.report(io.stderr())..&;
+    return r.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
+}
+
+fn check_basic_events() void {
+    let t = test.report(io.stderr())..&;
+    let mut r = reader("<?xml version=\"1.0\"?><root id=\"7\" flag='yes'>hello &amp; <![CDATA[raw <>&]]><!--note--><?go now?><empty a=\"b\"/></root>");
+
+    match (expect_next(r..&)) {
+        .{ Declaration: pi } => {
+            pi.target.eq("xml").should().sum(@loc(), t);
+            let element = xml.Element.{ name: pi.target, raw: pi.raw, attributes_raw: pi.body, attributes_offset: 6 };
+            let mut attrs = element.attributes();
+            let version = attrs..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
+            version.name.eq("version").should().sum(@loc(), t);
+            version.value.raw.should().eq("1.0").sum(@loc(), t);
+            attrs..&.next().should_ok().sum(@loc(), t).should_none().sum(@loc(), t);
+        },
+        _ => t.fail_at(@loc(), "expected XML declaration"),
+    }
+
+    match (expect_next(r..&)) {
+        .{ Start: root } => {
+            root.name.eq("root").should().sum(@loc(), t);
+            let mut attrs = root.attributes();
+            let id = attrs..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
+            let flag = attrs..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
+            id.name.eq("id").should().sum(@loc(), t);
+            id.value.raw.should().eq("7").sum(@loc(), t);
+            flag.name.eq("flag").should().sum(@loc(), t);
+            flag.value.raw.should().eq("yes").sum(@loc(), t);
+            attrs..&.next().should_ok().sum(@loc(), t).should_none().sum(@loc(), t);
+        },
+        _ => t.fail_at(@loc(), "expected root start"),
+    }
+
+    match (expect_next(r..&)) {
+        .{ Text: text } => {
+            text.raw.should().eq("hello &amp; ").sum(@loc(), t);
+            text.contains_reference().should().sum(@loc(), t);
+        },
+        _ => t.fail_at(@loc(), "expected text"),
+    }
+    match (expect_next(r..&)) {
+        .{ CData: text } => text.raw.should().eq("raw <>&").sum(@loc(), t),
+        _ => t.fail_at(@loc(), "expected cdata"),
+    }
+    match (expect_next(r..&)) {
+        .{ Comment: text } => text.raw.should().eq("note").sum(@loc(), t),
+        _ => t.fail_at(@loc(), "expected comment"),
+    }
+    match (expect_next(r..&)) {
+        .{ ProcessingInstruction: pi } => {
+            pi.target.eq("go").should().sum(@loc(), t);
+            pi.body.should().eq("now").sum(@loc(), t);
+        },
+        _ => t.fail_at(@loc(), "expected processing instruction"),
+    }
+    match (expect_next(r..&)) {
+        .{ Empty: empty } => {
+            empty.name.eq("empty").should().sum(@loc(), t);
+            let mut attrs = empty.attributes();
+            let attr = attrs..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
+            attr.name.eq("a").should().sum(@loc(), t);
+            attr.value.raw.should().eq("b").sum(@loc(), t);
+        },
+        _ => t.fail_at(@loc(), "expected empty element"),
+    }
+    match (expect_next(r..&)) {
+        .{ End: name } => name.eq("root").should().sum(@loc(), t),
+        _ => t.fail_at(@loc(), "expected root end"),
+    }
+    r..&.next().should_ok().sum(@loc(), t).should_none().sum(@loc(), t);
+    r.&.is_done().should().sum(@loc(), t);
+}
+
+fn check_decode_entities() void {
+    let t = test.report(io.stderr())..&;
+    let text = xml.EncodedText.{ raw: "a&amp;b&lt;c&gt;&apos;&quot;&#65;&#x1F600;" };
+    text.decoded_size().should_ok().sum(@loc(), t).should().eq(13).sum(@loc(), t);
+
+    let mut out = [32]u8.{undef};
+    let written = text.write_decoded(out..&[0 .. 32]).should_ok().sum(@loc(), t);
+    let expected = [13]u8.{ b'a', b'&', b'b', b'<', b'c', b'>', b'\'', b'"', b'A', 0xF0, 0x9F, 0x98, 0x80 };
+    out.&[0 .. written].should().eq(expected.&[0 .. 13]).sum(@loc(), t);
+
+    let page = Page.{}..&;
+    let gpa = GPA.{ backing: page }..&;
+    let mut cloned = text.clone_decoded(gpa).should_ok().sum(@loc(), t);
+    defer cloned..&.deinit(gpa);
+    cloned.&.as_str().should().eq(out.&[0 .. written]).sum(@loc(), t);
+}
+
+fn check_doctype_and_bom() void {
+    let t = test.report(io.stderr())..&;
+    let source = [60]u8.{
+        0xEF, 0xBB, 0xBF,
+        b'<', b'!', b'D', b'O', b'C', b'T', b'Y', b'P', b'E', b' ',
+        b'n', b'o', b't', b'e', b' ', b'[', b' ', b'<', b'!', b'E',
+        b'N', b'T', b'I', b'T', b'Y', b' ', b'w', b'r', b'i', b't',
+        b'e', b'r', b' ', b'"', b'D', b'o', b'n', b'a', b'l', b'd',
+        b' ', b'D', b'u', b'c', b'k', b'"', b'>', b' ', b']', b'>',
+        b'<', b'n', b'o', b't', b'e', b'/', b'>',
+    };
+    let mut r = reader(source.&[0 .. 60]);
+    match (expect_next(r..&)) {
+        .{ Doctype: text } => text.raw.should().eq(" note [ <!ENTITY writer \"Donald Duck\"> ]").sum(@loc(), t),
+        _ => t.fail_at(@loc(), "expected doctype"),
+    }
+    match (expect_next(r..&)) {
+        .{ Empty: note } => note.name.eq("note").should().sum(@loc(), t),
+        _ => t.fail_at(@loc(), "expected empty note"),
+    }
+    r..&.next().should_ok().sum(@loc(), t).should_none().sum(@loc(), t);
+}
+
+fn check_errors_have_offsets() void {
+    let t = test.report(io.stderr())..&;
+    let mut r = reader("<root><!--oops");
+    match (expect_next(r..&)) {
+        .{ Start: root } => root.name.eq("root").should().sum(@loc(), t),
+        _ => t.fail_at(@loc(), "expected root"),
+    }
+    let err = r..&.next().should_err().sum(@loc(), t);
+    err.kind.should().eq(ErrorKind.UnterminatedComment).sum(@loc(), t);
+    err.offset.should().eq(6).sum(@loc(), t);
+
+    let bad = xml.EncodedText.{ raw: "&wat;" }.decoded_size().should_err().sum(@loc(), t);
+    bad.kind.should().eq(DecodeErrorKind.UnknownEntity).sum(@loc(), t);
+    bad.offset.should().eq(0).sum(@loc(), t);
+
+    let loc = xml.locate("a\nbc", 3);
+    loc.line.should().eq(2).sum(@loc(), t);
+    loc.column.should().eq(2).sum(@loc(), t);
+}
+
+fn check_validation() void {
+    let t = test.report(io.stderr())..&;
+    let page = Page.{}..&;
+    let gpa = GPA.{ backing: page }..&;
+
+    xml.validate("<root><child/><child>text</child></root>", gpa).should_ok().sum(@loc(), t);
+
+    let mismatch = xml.validate("<root><a></root>", gpa).should_err().sum(@loc(), t);
+    match (mismatch.kind) {
+        .MismatchedEnd => {},
+        _ => t.fail_at(@loc(), "expected mismatched end"),
+    }
+
+    let multiple = xml.validate("<a/><b/>", gpa).should_err().sum(@loc(), t);
+    match (multiple.kind) {
+        .MultipleRoots => {},
+        _ => t.fail_at(@loc(), "expected multiple roots"),
+    }
+
+    let missing = xml.validate("   <!-- only comment -->", gpa).should_err().sum(@loc(), t);
+    match (missing.kind) {
+        .MissingRoot => {},
+        _ => t.fail_at(@loc(), "expected missing root"),
+    }
+
+    let parse = xml.validate("<root><!-- bad", gpa).should_err().sum(@loc(), t);
+    match (parse.kind) {
+        .{ Parse: kind } => kind.should().eq(ErrorKind.UnterminatedComment).sum(@loc(), t),
+        _ => t.fail_at(@loc(), "expected parse error"),
+    }
+}
+
+fn check_expect_combinators() void {
+    let t = test.report(io.stderr())..&;
+    let mut r = reader("<!--meta--><root><leaf/></root>");
+    let root = r..&.expect_start("root").should_ok().sum(@loc(), t);
+    root.name.eq("root").should().sum(@loc(), t);
+    let leaf = r..&.expect_empty("leaf").should_ok().sum(@loc(), t);
+    leaf.name.eq("leaf").should().sum(@loc(), t);
+    r..&.expect_end("root").should_ok().sum(@loc(), t).eq("root").should().sum(@loc(), t);
+    r..&.next_significant().should_ok().sum(@loc(), t).should_none().sum(@loc(), t);
+
+    let mut wrong = reader("<root/>");
+    let err = wrong..&.expect_start("root").should_err().sum(@loc(), t);
+    match (err.kind) {
+        .UnexpectedEvent => {},
+        _ => t.fail_at(@loc(), "expected unexpected event"),
+    }
+
+    let mut mismatch = reader("<other></other>");
+    let mismatch_err = mismatch..&.expect_start("root").should_err().sum(@loc(), t);
+    match (mismatch_err.kind) {
+        .NameMismatch => {},
+        _ => t.fail_at(@loc(), "expected name mismatch"),
+    }
+}
+
+fn main() i32 {
+    check_basic_events();
+    check_decode_entities();
+    check_doctype_and_bom();
+    check_errors_have_offsets();
+    check_validation();
+    check_expect_combinators();
+    return 0;
+}

@@ -1,0 +1,258 @@
+//! XML parsing and decoding utilities.
+//!
+//! The core reader is allocation-free and yields borrowed slices. Higher-level
+//! document models can be built on top without changing the tokenizer API.
+
+use base.io.{Formatable, Write};
+
+mod bytes;
+mod decode;
+mod attribute;
+mod reader_impl;
+mod expect;
+mod validate;
+
+pub enum ErrorKind {
+    UnexpectedEof,
+    UnexpectedByte,
+    InvalidName,
+    InvalidAttribute,
+    UnterminatedComment,
+    UnterminatedCData,
+    UnterminatedProcessingInstruction,
+    UnterminatedDoctype,
+    UnterminatedTag,
+};
+
+pub struct Error {
+    pub kind: ErrorKind,
+    pub offset: usize,
+};
+
+pub struct Location {
+    pub offset: usize,
+    pub line: usize,
+    pub column: usize,
+};
+
+pub enum DecodeErrorKind {
+    UnknownEntity,
+    InvalidReference,
+    InvalidCodepoint,
+    UnterminatedReference,
+    BufferTooSmall,
+    OutOfMemory,
+};
+
+pub struct DecodeError {
+    pub kind: DecodeErrorKind,
+    pub offset: usize,
+};
+
+pub enum ExpectErrorKind {
+    Parse: ErrorKind,
+    UnexpectedEof,
+    UnexpectedEvent,
+    NameMismatch,
+};
+
+pub struct ExpectError {
+    pub kind: ExpectErrorKind,
+    pub offset: usize,
+};
+
+pub enum ValidateErrorKind {
+    Parse: ErrorKind,
+    OutOfMemory,
+    MultipleRoots,
+    MissingRoot,
+    MismatchedEnd,
+    UnclosedElement,
+};
+
+pub struct ValidateError {
+    pub kind: ValidateErrorKind,
+    pub offset: usize,
+};
+
+pub struct Name {
+    pub raw: &[u8],
+};
+
+pub struct EncodedText {
+    pub raw: &[u8],
+};
+
+pub type Text = EncodedText;
+
+pub struct Attribute {
+    pub name: Name,
+    pub value: EncodedText,
+    pub raw: &[u8],
+};
+
+pub struct AttributeCursor {
+    pub raw: &[u8],
+    pub offset_base: usize,
+    pub index: usize = 0,
+    pub done: bool = false,
+};
+
+pub struct Element {
+    pub name: Name,
+    pub raw: &[u8],
+    pub attributes_raw: &[u8],
+    pub attributes_offset: usize,
+};
+
+pub struct ProcessingInstruction {
+    pub target: Name,
+    pub body: &[u8],
+    pub raw: &[u8],
+};
+
+pub enum Event {
+    Declaration: ProcessingInstruction,
+    ProcessingInstruction: ProcessingInstruction,
+    Start: Element,
+    Empty: Element,
+    End: Name,
+    Text: Text,
+    Comment: Text,
+    CData: Text,
+    Doctype: Text,
+};
+
+pub struct Reader {
+    pub source: &[u8],
+    pub index: usize = 0,
+    pub started: bool = false,
+    pub done: bool = false,
+};
+
+pub fn reader(source: &[u8]) Reader {
+    return .{ source };
+}
+
+pub fn validate(source: &[u8], alloc: &mut base.mem.alloc.Allocator) void!ValidateError {
+    let mut r = reader(source);
+    return r..&.validate(alloc);
+}
+
+pub fn locate(source: &[u8], offset: usize) Location {
+    let mut line = 1;
+    let mut column = 1;
+    let limit = if (offset < #source) offset else #source;
+    let mut i = 0;
+    while (i < limit) {
+        if (source.[i] == b'\n') {
+            line += 1;
+            column = 1;
+        } else {
+            column += 1;
+        }
+        i += 1;
+    }
+    return .{ offset, line, column };
+}
+
+impl &ErrorKind : Formatable {
+    pub fn write_to(writer: &mut Write) void {
+        match (self.*) {
+            .UnexpectedEof => _ = writer.write("unexpected end of file"),
+            .UnexpectedByte => _ = writer.write("unexpected byte"),
+            .InvalidName => _ = writer.write("invalid XML name"),
+            .InvalidAttribute => _ = writer.write("invalid XML attribute"),
+            .UnterminatedComment => _ = writer.write("unterminated XML comment"),
+            .UnterminatedCData => _ = writer.write("unterminated CDATA section"),
+            .UnterminatedProcessingInstruction => _ = writer.write("unterminated processing instruction"),
+            .UnterminatedDoctype => _ = writer.write("unterminated doctype declaration"),
+            .UnterminatedTag => _ = writer.write("unterminated XML tag"),
+        }
+    }
+}
+
+impl &Error : Formatable {
+    pub fn write_to(writer: &mut Write) void {
+        self.kind.&.write_to(writer);
+        _ = writer.write(" at byte ");
+        self.offset.&.write_to(writer);
+    }
+}
+
+impl &DecodeErrorKind : Formatable {
+    pub fn write_to(writer: &mut Write) void {
+        match (self.*) {
+            .UnknownEntity => _ = writer.write("unknown XML entity"),
+            .InvalidReference => _ = writer.write("invalid XML character reference"),
+            .InvalidCodepoint => _ = writer.write("invalid Unicode codepoint"),
+            .UnterminatedReference => _ = writer.write("unterminated XML reference"),
+            .BufferTooSmall => _ = writer.write("buffer too small"),
+            .OutOfMemory => _ = writer.write("out of memory"),
+        }
+    }
+}
+
+impl &DecodeError : Formatable {
+    pub fn write_to(writer: &mut Write) void {
+        self.kind.&.write_to(writer);
+        _ = writer.write(" at byte ");
+        self.offset.&.write_to(writer);
+    }
+}
+
+impl &ExpectErrorKind : Formatable {
+    pub fn write_to(writer: &mut Write) void {
+        match (self.*) {
+            .{ Parse: kind } => kind.&.write_to(writer),
+            .UnexpectedEof => _ = writer.write("unexpected end of XML stream"),
+            .UnexpectedEvent => _ = writer.write("unexpected XML event"),
+            .NameMismatch => _ = writer.write("XML name mismatch"),
+        }
+    }
+}
+
+impl &ExpectError : Formatable {
+    pub fn write_to(writer: &mut Write) void {
+        self.kind.&.write_to(writer);
+        _ = writer.write(" at byte ");
+        self.offset.&.write_to(writer);
+    }
+}
+
+impl &ValidateErrorKind : Formatable {
+    pub fn write_to(writer: &mut Write) void {
+        match (self.*) {
+            .{ Parse: kind } => kind.&.write_to(writer),
+            .OutOfMemory => _ = writer.write("out of memory"),
+            .MultipleRoots => _ = writer.write("multiple XML root elements"),
+            .MissingRoot => _ = writer.write("missing XML root element"),
+            .MismatchedEnd => _ = writer.write("mismatched XML end tag"),
+            .UnclosedElement => _ = writer.write("unclosed XML element"),
+        }
+    }
+}
+
+impl &ValidateError : Formatable {
+    pub fn write_to(writer: &mut Write) void {
+        self.kind.&.write_to(writer);
+        _ = writer.write(" at byte ");
+        self.offset.&.write_to(writer);
+    }
+}
+
+impl Name {
+    pub fn is_empty() bool {
+        return #self.raw == 0;
+    }
+
+    pub fn eq(text: &[u8]) bool {
+        return self.raw == text;
+    }
+}
+
+impl Element {
+    pub fn attributes() AttributeCursor {
+        return .{ raw: self.attributes_raw, offset_base: self.attributes_offset };
+    }
+}
