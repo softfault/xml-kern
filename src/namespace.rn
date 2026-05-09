@@ -1,4 +1,14 @@
-use ..{Attribute, Element, EncodedText, Name, NamespaceBinding, NamespaceDeclaration, QualifiedName};
+use ..{
+    Attribute,
+    DocumentIndex,
+    Element,
+    EncodedText,
+    Name,
+    NamespaceBinding,
+    NamespaceDeclaration,
+    QualifiedName,
+    ResolvedName,
+};
 
 fn colon_at(raw: &[u8]) ?usize {
     let mut i = usize.{0};
@@ -64,5 +74,69 @@ impl &Attribute {
             .{ Some: _ } => return true,
             .None => return false,
         }
+    }
+}
+
+fn namespace_attr_value(element: Element, prefix: ?&[u8]) ?EncodedText {
+    let mut attrs = element.attributes();
+    while (true) {
+        let .{ Ok: next } = attrs..&.next() else return .None;
+        let .{ Some: attr } = next else break;
+        match (attr.&.namespace_declaration()) {
+            .{ Some: .{ Default: uri } } => {
+                if (prefix.is_none()) return .{ Some: uri };
+            },
+            .{ Some: .{ Prefixed: binding } } => {
+                let .{ Some: wanted } = prefix else continue;
+                if (binding.prefix == wanted) return .{ Some: binding.uri };
+            },
+            .None => {},
+        }
+    }
+    return .None;
+}
+
+impl &DocumentIndex {
+    pub fn namespace_for(index: usize, prefix: ?&[u8]) ?EncodedText {
+        let mut current = (?usize).{ Some: index };
+        while (true) {
+            let .{ Some: node_index } = current else return .None;
+            let .{ Some: node } = self.get(node_index) else return .None;
+            match (namespace_attr_value(node.element, prefix)) {
+                .{ Some: uri } => return .{ Some: uri },
+                .None => current = node.parent,
+            }
+        }
+        return .None;
+    }
+
+    pub fn resolved_name(index: usize) ?ResolvedName {
+        let .{ Some: node } = self.get(index) else return .None;
+        let qname = node.element.name.&.qualified();
+        let uri = self.namespace_for(index, qname.prefix);
+        return .{ Some: ResolvedName.{ uri: uri, local: qname.local } };
+    }
+
+    pub fn first_child_ns(index: usize, uri: &[u8], local: &[u8]) ?usize {
+        let mut current = self.first_child(index);
+        while (true) {
+            let .{ Some: node_index } = current else return .None;
+            let .{ Some: node } = self.get(node_index) else return .None;
+            let .{ Some: name } = self.resolved_name(node_index) else return .None;
+            match (name.uri) {
+                .{ Some: resolved_uri } => {
+                    if (resolved_uri.raw == uri and name.local == local) {
+                        return .{ Some: node_index };
+                    }
+                },
+                .None => {
+                    if (#uri == 0 and name.local == local) {
+                        return .{ Some: node_index };
+                    }
+                },
+            }
+            current = node.next_sibling;
+        }
+        return .None;
     }
 }

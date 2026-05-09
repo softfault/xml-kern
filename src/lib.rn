@@ -153,6 +153,11 @@ pub enum NamespaceDeclaration {
     Prefixed: NamespaceBinding,
 };
 
+pub struct ResolvedName {
+    pub uri: ?EncodedText,
+    pub local: &[u8],
+};
+
 pub struct AttributeCursor {
     pub/ raw: &[u8],
     pub/ offset_base: usize,

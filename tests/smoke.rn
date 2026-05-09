@@ -376,6 +376,30 @@ fn check_namespace_views() void {
     }
 }
 
+fn check_namespace_index_queries() void {
+    let t = test.report(io.stderr())..&;
+    let page = page()..&;
+    let gpa = gpa().on(page)..&;
+    let index = xml.build_index("<root xmlns=\"urn:root\" xmlns:x=\"urn:x\"><child/><x:child/><scope xmlns=\"urn:inner\"><child/></scope></root>", gpa).should_ok().sum(@loc(), t)..&;
+    defer index.deinit(gpa);
+
+    let root_id = index.root().should_some().sum(@loc(), t);
+    let root_name = index.resolved_name(root_id).should_some().sum(@loc(), t);
+    root_name.uri.should_some().sum(@loc(), t).raw.should().eq("urn:root").sum(@loc(), t);
+    root_name.local.should().eq("root").sum(@loc(), t);
+
+    let default_child = index.first_child_ns(root_id, "urn:root", "child").should_some().sum(@loc(), t);
+    index.get(default_child).should_some().sum(@loc(), t).element.name.eq("child").should().sum(@loc(), t);
+
+    let prefixed_child = index.first_child_ns(root_id, "urn:x", "child").should_some().sum(@loc(), t);
+    index.get(prefixed_child).should_some().sum(@loc(), t).element.name.eq("x:child").should().sum(@loc(), t);
+
+    let scope_id = index.first_child_named(root_id, "scope").should_some().sum(@loc(), t);
+    let inner_child = index.first_child_ns(scope_id, "urn:inner", "child").should_some().sum(@loc(), t);
+    let inner_name = index.resolved_name(inner_child).should_some().sum(@loc(), t);
+    inner_name.uri.should_some().sum(@loc(), t).raw.should().eq("urn:inner").sum(@loc(), t);
+}
+
 fn check_borrowed_index() void {
     let t = test.report(io.stderr())..&;
     let page = page()..&;
@@ -484,6 +508,7 @@ fn main() i32 {
     check_expect_combinators();
     check_stream_combinators();
     check_namespace_views();
+    check_namespace_index_queries();
     check_borrowed_index();
     check_render_round_trip();
     check_owned_document_tree();

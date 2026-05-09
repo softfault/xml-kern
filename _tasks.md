@@ -46,4 +46,4 @@
 - [x] Borrowed document index for repeated lookup without full ownership.
 - [x] Owned document tree.
 - [x] XML writer/renderer.
-- [ ] Namespace-aware validation and querying.
+- [x] Namespace-aware validation and querying.
