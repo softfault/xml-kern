@@ -1,5 +1,14 @@
 use ..{Element, EncodedText, Error, Event, Name, ProcessingInstruction, Reader};
-use ..bytes.{err, find, find_byte, name_end, name_eq, skip_ws, starts_with_at, trim_right_ws};
+use ..bytes.{
+    err,
+    find,
+    find_byte,
+    name_end,
+    name_eq,
+    skip_ws,
+    starts_with_at,
+    trim_right_ws,
+};
 
 fn find_tag_end(text: &[u8], start: usize) usize!Error {
     let mut index = start;
@@ -172,6 +181,9 @@ fn is_encoding_value(value: &[u8]) bool {
     return true;
 }
 
+// Parses the XML declaration as a processing instruction and enforces the XML
+// declaration-specific attribute order: version, optional encoding, optional
+// standalone. Other processing instructions are handled by `parse_pi`.
 fn parse_declaration(text: &[u8], start: usize) ProcessingInstruction!Error {
     let pi = parse_pi(text, start).!;
     if (!pi.target.eq("xml")) {

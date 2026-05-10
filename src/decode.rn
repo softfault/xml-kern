@@ -3,6 +3,7 @@ use base.mem.alloc.Allocator;
 
 use ..{DecodeError, DecodeErrorKind, EncodedText};
 
+// Builds a decode error at the source offset that caused it.
 fn decode_err(kind: DecodeErrorKind, offset: usize) DecodeError {
     return .{ kind, offset };
 }
@@ -69,6 +70,9 @@ fn named_entity(text: &[u8]) ?u8 {
     return .None;
 }
 
+// Parses decimal and hexadecimal XML character references after the leading
+// ampersand has already been stripped. The function validates digit shape,
+// Unicode range, and surrogate exclusion before the caller encodes UTF-8.
 fn parse_char_ref(text: &[u8], offset: usize) u32!DecodeError {
     if (#text == 0 or text.[0] != b'#') {
         return .{ Err: decode_err(.InvalidReference, offset) };

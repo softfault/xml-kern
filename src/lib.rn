@@ -2,6 +2,33 @@
 //!
 //! The core reader is allocation-free and yields borrowed slices. Higher-level
 //! document models can be built on top without changing the tokenizer API.
+//!
+//! ## Pull Reading
+//!
+//! Use `reader(source)` for streaming access without allocation. Each call to
+//! `next()` returns a borrowed `Event`, so large XML documents can be processed
+//! without building a tree.
+//!
+//! ```kern
+//! let mut r = xml.reader("<root><leaf/></root>");
+//! let event = r..&.next().!;
+//! ```
+//!
+//! ## Structured Reading
+//!
+//! Expect helpers skip comments, processing instructions, and whitespace-only
+//! text when a caller wants a fixed document shape.
+//!
+//! ```kern
+//! let mut r = xml.reader("<config><name>kern</name></config>");
+//! let root = r..&.expect_start("config").!;
+//! ```
+//!
+//! ## Indexes And Ownership
+//!
+//! `build_index` creates a borrowed element topology for repeated lookup, while
+//! `clone_owned_document` copies names and raw slices when the source buffer
+//! cannot outlive the parsed document.
 
 use base.io.{Formatable, Write};
 use base.coll.List;
@@ -262,11 +289,17 @@ pub trait EventSink {
 
 /// Borrowed node stored in a `DocumentIndex`.
 pub struct IndexedNode {
+    /// Start or empty element payload for this node.
     pub element: Element,
+    /// Parent node index, or `None` for the document root.
     pub parent: ?usize,
+    /// First child node index.
     pub first_child: ?usize,
+    /// Last child node index, used to append siblings in O(1).
     pub last_child: ?usize,
+    /// Next sibling node index under the same parent.
     pub next_sibling: ?usize,
+    /// Element depth, with the root at depth zero.
     pub depth: usize,
 };
 

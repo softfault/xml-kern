@@ -1,3 +1,5 @@
+//! Namespace-aware XML name and attribute helpers.
+
 use ..{
     Attribute,
     DocumentIndex,

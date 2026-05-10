@@ -24,6 +24,8 @@ fn is_ignorable(event: Event) bool {
     }
 }
 
+// Structured-reader helpers consume significant events and turn tokenizer
+// failures into expectation errors that preserve the reader offset.
 impl &mut Reader {
     /// Returns the next non-ignorable event for structured readers.
     pub fn next_significant() ?Event!ExpectError {

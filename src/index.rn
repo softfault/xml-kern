@@ -29,6 +29,9 @@ fn node_at(nodes: &mut List[IndexedNode], index: usize) (&mut IndexedNode)!Index
     return .{ Ok: node };
 }
 
+// Appends a node and patches the parent's child/sibling links. The list may
+// reallocate during `push`, so parent and sibling pointers are reacquired after
+// mutation instead of being held across the allocation boundary.
 fn push_node(
     nodes: &mut List[IndexedNode],
     stack: &mut List[usize],
@@ -212,6 +215,12 @@ impl &mut Reader {
 }
 
 /// Builds a borrowed element index over `source`.
+///
+/// The source is validated first, then scanned again to record only element
+/// nodes. Text, comments, declarations, processing instructions, CDATA, and
+/// doctypes are not stored in the index. Node links are represented by list
+/// indices, so the returned index stays valid as long as the original source
+/// buffer outlives it.
 pub fn build_index(source: &[u8], alloc: &mut Allocator) DocumentIndex!IndexError {
     let mut r = reader(source);
     return r..&.build_index(alloc);

@@ -1,3 +1,9 @@
+//! Byte-oriented XML scanning helpers.
+//!
+//! This module keeps the tokenizer's hot path allocation-free. Fast ASCII
+//! checks handle the common case, while UTF-8 scalar validation covers the XML
+//! Name and NameChar ranges used by non-ASCII documents.
+
 use ..Error;
 use ..ErrorKind;
 
@@ -8,7 +14,10 @@ pub/ fn err(kind: ErrorKind, offset: usize) Error {
 
 /// Returns `true` for XML whitespace bytes.
 pub/ fn is_ws(byte: u8) bool {
-    return byte == b' ' or byte == b'\n' or byte == b'\r' or byte == b'\t';
+    return byte == b' '
+        or byte == b'\n'
+        or byte == b'\r'
+        or byte == b'\t';
 }
 
 /// Skips XML whitespace from `index`.
@@ -77,12 +86,19 @@ pub/ fn find(text: &[u8], needle: &[u8], start: usize) ?usize {
 
 /// Fast ASCII-compatible XML name-start precheck.
 pub/ fn is_name_start(byte: u8) bool {
-    return byte == b':' or byte == b'_' or (byte >= b'A' and byte <= b'Z') or (byte >= b'a' and byte <= b'z') or byte >= 0x80;
+    return byte == b':'
+        or byte == b'_'
+        or (byte >= b'A' and byte <= b'Z')
+        or (byte >= b'a' and byte <= b'z')
+        or byte >= 0x80;
 }
 
 /// Fast ASCII-compatible XML name-continue precheck.
 pub/ fn is_name_continue(byte: u8) bool {
-    return is_name_start(byte) or byte == b'-' or byte == b'.' or (byte >= b'0' and byte <= b'9');
+    return is_name_start(byte)
+        or byte == b'-'
+        or byte == b'.'
+        or (byte >= b'0' and byte <= b'9');
 }
 
 /// Decoded UTF-8 scalar and its source byte length.
@@ -95,6 +111,8 @@ fn is_continuation(byte: u8) bool {
     return (byte & 0xC0) == 0x80;
 }
 
+// Decodes one UTF-8 scalar and rejects overlong encodings, surrogates, and
+// values beyond the Unicode maximum before XML name validation sees them.
 fn read_utf8(text: &[u8], start: usize) Utf8Char!Error {
     if (start >= #text) {
         return .{ Err: err(.UnexpectedEof, start) };
@@ -105,6 +123,7 @@ fn read_utf8(text: &[u8], start: usize) Utf8Char!Error {
         return .{ Ok: .{ codepoint: b0 as u32, len: 1 } };
     }
 
+    // Two-byte scalars must start at C2; C0 and C1 would be overlong ASCII.
     if (b0 >= 0xC2 and b0 <= 0xDF) {
         if (start + 1 >= #text or !is_continuation(text.[start + 1])) {
             return .{ Err: err(.InvalidName, start) };
@@ -113,27 +132,42 @@ fn read_utf8(text: &[u8], start: usize) Utf8Char!Error {
         return .{ Ok: .{ codepoint: value, len: 2 } };
     }
 
+    // Three-byte scalars need extra boundary checks for overlong forms and
+    // UTF-16 surrogate codepoints.
     if (b0 >= 0xE0 and b0 <= 0xEF) {
-        if (start + 2 >= #text or !is_continuation(text.[start + 1]) or !is_continuation(text.[start + 2])) {
+        if (start + 2 >= #text
+            or !is_continuation(text.[start + 1])
+            or !is_continuation(text.[start + 2])
+        ) {
             return .{ Err: err(.InvalidName, start) };
         }
         let b1 = text.[start + 1];
         if ((b0 == 0xE0 and b1 < 0xA0) or (b0 == 0xED and b1 >= 0xA0)) {
             return .{ Err: err(.InvalidName, start) };
         }
-        let value = ((b0 & 0x0F) as u32) << 12 | ((b1 & 0x3F) as u32) << 6 | ((text.[start + 2] & 0x3F) as u32);
+        let value = ((b0 & 0x0F) as u32) << 12
+            | ((b1 & 0x3F) as u32) << 6
+            | ((text.[start + 2] & 0x3F) as u32);
         return .{ Ok: .{ codepoint: value, len: 3 } };
     }
 
+    // Four-byte scalars are valid only up to U+10FFFF.
     if (b0 >= 0xF0 and b0 <= 0xF4) {
-        if (start + 3 >= #text or !is_continuation(text.[start + 1]) or !is_continuation(text.[start + 2]) or !is_continuation(text.[start + 3])) {
+        if (start + 3 >= #text
+            or !is_continuation(text.[start + 1])
+            or !is_continuation(text.[start + 2])
+            or !is_continuation(text.[start + 3])
+        ) {
             return .{ Err: err(.InvalidName, start) };
         }
         let b1 = text.[start + 1];
         if ((b0 == 0xF0 and b1 < 0x90) or (b0 == 0xF4 and b1 > 0x8F)) {
             return .{ Err: err(.InvalidName, start) };
         }
-        let value = ((b0 & 0x07) as u32) << 18 | ((b1 & 0x3F) as u32) << 12 | ((text.[start + 2] & 0x3F) as u32) << 6 | ((text.[start + 3] & 0x3F) as u32);
+        let value = ((b0 & 0x07) as u32) << 18
+            | ((b1 & 0x3F) as u32) << 12
+            | ((text.[start + 2] & 0x3F) as u32) << 6
+            | ((text.[start + 3] & 0x3F) as u32);
         return .{ Ok: .{ codepoint: value, len: 4 } };
     }
 
@@ -141,6 +175,8 @@ fn read_utf8(text: &[u8], start: usize) Utf8Char!Error {
 }
 
 fn is_xml_name_start_scalar(codepoint: u32) bool {
+    // XML 1.0 NameStartChar ranges. ASCII punctuation and letters are listed
+    // first so common names avoid the longer Unicode range checks.
     return codepoint == 0x3A
         or codepoint == 0x5F
         or (codepoint >= 0x41 and codepoint <= 0x5A)
@@ -160,6 +196,8 @@ fn is_xml_name_start_scalar(codepoint: u32) bool {
 }
 
 fn is_xml_name_continue_scalar(codepoint: u32) bool {
+    // XML NameChar extends NameStartChar with digits, separators, and combining
+    // marks used by many scripts.
     return is_xml_name_start_scalar(codepoint)
         or codepoint == 0x2D
         or codepoint == 0x2E
