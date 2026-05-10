@@ -1,4 +1,12 @@
-use ..{Element, Error, Event, ExpectError, ExpectErrorKind, Name, Reader};
+use ..{
+    Element,
+    Error,
+    Event,
+    ExpectError,
+    ExpectErrorKind,
+    Name,
+    Reader,
+};
 
 fn expect_err(kind: ExpectErrorKind, offset: usize) ExpectError {
     return .{ kind, offset };

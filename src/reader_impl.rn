@@ -1,4 +1,12 @@
-use ..{Element, EncodedText, Error, Event, Name, ProcessingInstruction, Reader};
+use ..{
+    Element,
+    EncodedText,
+    Error,
+    Event,
+    Name,
+    ProcessingInstruction,
+    Reader,
+};
 use ..bytes.{
     err,
     find,
@@ -166,7 +174,11 @@ fn is_encoding_start(byte: u8) bool {
 }
 
 fn is_encoding_continue(byte: u8) bool {
-    return is_encoding_start(byte) or (byte >= b'0' and byte <= b'9') or byte == b'.' or byte == b'_' or byte == b'-';
+    return is_encoding_start(byte)
+        or (byte >= b'0' and byte <= b'9')
+        or byte == b'.'
+        or byte == b'_'
+        or byte == b'-';
 }
 
 fn is_encoding_value(value: &[u8]) bool {
@@ -257,7 +269,11 @@ impl &mut Reader {
 
         if (!self.started) {
             self.started = true;
-            if (#self.source >= 3 and self.source.[0] == 0xEF and self.source.[1] == 0xBB and self.source.[2] == 0xBF) {
+            let has_bom = #self.source >= 3
+                and self.source.[0] == 0xEF
+                and self.source.[1] == 0xBB
+                and self.source.[2] == 0xBF;
+            if (has_bom) {
                 self.index = 3;
             }
         }
@@ -313,7 +329,8 @@ impl &mut Reader {
         if (starts_with_at(text, start, "<!DOCTYPE")) {
             let end = find_doctype_end(text, start + #"<!DOCTYPE").!;
             self.index = end + 1;
-            return .{ Ok: .{ Some: .{ Doctype: EncodedText.{ raw: text.&[start + #"<!DOCTYPE" .. end] } } } };
+            let raw = text.&[start + #"<!DOCTYPE" .. end];
+            return .{ Ok: .{ Some: .{ Doctype: EncodedText.{ raw: raw } } } };
         }
 
         if (starts_with_at(text, start, "</")) {

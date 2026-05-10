@@ -372,7 +372,9 @@ impl &ErrorKind : Formatable {
             .InvalidDeclaration => _ = writer.write("invalid XML declaration"),
             .UnterminatedComment => _ = writer.write("unterminated XML comment"),
             .UnterminatedCData => _ = writer.write("unterminated CDATA section"),
-            .UnterminatedProcessingInstruction => _ = writer.write("unterminated processing instruction"),
+            .UnterminatedProcessingInstruction => _ = writer.write(
+                "unterminated processing instruction"
+            ),
             .UnterminatedDoctype => _ = writer.write("unterminated doctype declaration"),
             .UnterminatedTag => _ = writer.write("unterminated XML tag"),
         }

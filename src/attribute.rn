@@ -1,4 +1,10 @@
-use ..{Attribute, AttributeCursor, EncodedText, Error, Name};
+use ..{
+    Attribute,
+    AttributeCursor,
+    EncodedText,
+    Error,
+    Name,
+};
 use ..bytes.{err, name_end, skip_ws};
 
 impl &AttributeCursor {

@@ -1,4 +1,15 @@
-use ..{Element, Error, Event, EventSink, EventStream, FilteredReader, MappedReader, Name, Reader, SinkStats};
+use ..{
+    Element,
+    Error,
+    Event,
+    EventSink,
+    EventStream,
+    FilteredReader,
+    MappedReader,
+    Name,
+    Reader,
+    SinkStats,
+};
 
 impl &mut Reader : EventStream {
     /// Returns the next reader event through the stream trait.

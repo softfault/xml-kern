@@ -46,10 +46,18 @@ fn deinit_element(alloc: &mut Allocator, element: &mut OwnedElement) void {
     element.name..&.deinit(alloc);
     element.raw..&.deinit(alloc);
     element.attributes_raw..&.deinit(alloc);
-    element.* = OwnedElement.{ name: string(), raw: string(), attributes_raw: string() };
+    element.* = OwnedElement.{
+        name: string(),
+        raw: string(),
+        attributes_raw: string(),
+    };
 }
 
-fn push_owned_node(out: &mut OwnedDocument, alloc: &mut Allocator, source: IndexedNode) void!OwnedError {
+fn push_owned_node(
+    out: &mut OwnedDocument,
+    alloc: &mut Allocator,
+    source: IndexedNode,
+) void!OwnedError {
     let element = clone_element(alloc, source).!;
     let node = OwnedNode.{
         element: element,

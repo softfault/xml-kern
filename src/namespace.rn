@@ -72,7 +72,11 @@ impl &Attribute {
         let qname = self.name.&.qualified();
         let .{ Some: prefix } = qname.prefix else return .None;
         if (prefix == "xmlns" and #qname.local > 0) {
-            return .{ Some: .{ Prefixed: NamespaceBinding.{ prefix: qname.local, uri: self.value } } };
+            let binding = NamespaceBinding.{
+                prefix: qname.local,
+                uri: self.value,
+            };
+            return .{ Some: .{ Prefixed: binding } };
         }
         return .None;
     }

@@ -3,7 +3,54 @@ use base.coll.range;
 use base.test;
 use std.io;
 use sys.mem.page;
-use xml.{DecodeErrorKind, ErrorKind, Event, ExpectErrorKind, ValidateErrorKind, reader};
+use xml.{
+    DecodeErrorKind,
+    ErrorKind,
+    Event,
+    ExpectErrorKind,
+    ValidateErrorKind,
+    reader,
+};
+
+const BASIC_EVENTS_XML =
+    \\<?xml version="1.0"?>
+    \\<root id="7" flag='yes'>hello &amp; <![CDATA[raw <>&]]><!--note--><?go now?>
+    \\  <empty a="b"/>
+    \\</root>
+;
+
+const MANY_ATTRS_DUPLICATE_XML =
+    \\<root
+    \\  a0="0" a1="1" a2="2" a3="3" a4="4"
+    \\  a5="5" a6="6" a7="7" a8="8" a9="9"
+    \\  a10="10" a11="11" a12="12" a13="13" a14="14"
+    \\  a7="dup"
+    \\/>
+;
+
+const NAMESPACE_INDEX_XML =
+    \\<root xmlns="urn:root" xmlns:x="urn:x">
+    \\  <child/>
+    \\  <x:child/>
+    \\  <scope xmlns="urn:inner"><child/></scope>
+    \\</root>
+;
+
+const BORROWED_INDEX_XML =
+    \\<root><item id="a"><leaf/></item><item id="b"/><other/></root>
+;
+
+const RENDER_ROUND_TRIP_XML =
+    \\<?xml version="1.0"?><root a="1"><child/>text<![CDATA[raw]]><!--note--><?go now?></root>
+;
+
+const OWNED_DOCUMENT_XML =
+    \\<root><item id="a"><leaf/></item><item id="b"/></root>
+;
+
+const FULL_DECL_XML =
+    \\<?xml version="1.0" encoding="utf-8" standalone="yes"?><root/>
+;
 
 fn expect_next(r: &mut xml.Reader) Event {
     let t = test.report(io.stderr())..&;
@@ -55,13 +102,20 @@ fn expect_prefix_errors(source: &[u8], min_len: usize, complete_events: usize) v
 
 fn check_basic_events() void {
     let t = test.report(io.stderr())..&;
-    let mut r = reader("<?xml version=\"1.0\"?><root id=\"7\" flag='yes'>hello &amp; <![CDATA[raw <>&]]><!--note--><?go now?><empty a=\"b\"/></root>");
+    let mut r = reader(BASIC_EVENTS_XML);
 
     match (expect_next(r..&)) {
         .{ Declaration: pi } => {
             pi.target.eq("xml").should().sum(@loc(), t);
         },
         _ => t.fail_at(@loc(), "expected XML declaration"),
+    }
+
+    match (expect_next(r..&)) {
+        .{ Text: text } => {
+            text.raw.should().eq("\n").sum(@loc(), t);
+        },
+        _ => t.fail_at(@loc(), "expected declaration whitespace"),
     }
 
     match (expect_next(r..&)) {
@@ -102,6 +156,12 @@ fn check_basic_events() void {
         _ => t.fail_at(@loc(), "expected processing instruction"),
     }
     match (expect_next(r..&)) {
+        .{ Text: text } => {
+            text.raw.should().eq("\n  ").sum(@loc(), t);
+        },
+        _ => t.fail_at(@loc(), "expected element whitespace"),
+    }
+    match (expect_next(r..&)) {
         .{ Empty: empty } => {
             empty.name.eq("empty").should().sum(@loc(), t);
             let mut attrs = empty.attributes();
@@ -110,6 +170,12 @@ fn check_basic_events() void {
             attr.value.raw.should().eq("b").sum(@loc(), t);
         },
         _ => t.fail_at(@loc(), "expected empty element"),
+    }
+    match (expect_next(r..&)) {
+        .{ Text: text } => {
+            text.raw.should().eq("\n").sum(@loc(), t);
+        },
+        _ => t.fail_at(@loc(), "expected trailing element whitespace"),
     }
     match (expect_next(r..&)) {
         .{ End: name } => name.eq("root").should().sum(@loc(), t),
@@ -126,7 +192,10 @@ fn check_decode_entities() void {
 
     let mut out = [32]u8.{undef};
     let written = text.write_decoded(out..&[0 .. 32]).should_ok().sum(@loc(), t);
-    let expected = [13]u8.{ b'a', b'&', b'b', b'<', b'c', b'>', b'\'', b'"', b'A', 0xF0, 0x9F, 0x98, 0x80 };
+    let expected = [13]u8.{
+        b'a', b'&', b'b', b'<', b'c', b'>', b'\'', b'"', b'A',
+        0xF0, 0x9F, 0x98, 0x80,
+    };
     out.&[0 .. written].should().eq(expected.&[0 .. 13]).sum(@loc(), t);
 
     let page = page()..&;
@@ -149,7 +218,10 @@ fn check_doctype_and_bom() void {
     };
     let mut r = reader(source.&[0 .. 60]);
     match (expect_next(r..&)) {
-        .{ Doctype: text } => text.raw.should().eq(" note [ <!ENTITY writer \"Donald Duck\"> ]").sum(@loc(), t),
+        .{ Doctype: text } => text.raw
+            .should()
+            .eq(" note [ <!ENTITY writer \"Donald Duck\"> ]")
+            .sum(@loc(), t),
         _ => t.fail_at(@loc(), "expected doctype"),
     }
     match (expect_next(r..&)) {
@@ -161,11 +233,14 @@ fn check_doctype_and_bom() void {
 
 fn check_errors_have_offsets() void {
     let t = test.report(io.stderr())..&;
-    let mut full_decl = reader("<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?><root/>");
+    let mut full_decl = reader(FULL_DECL_XML);
     match (expect_next(full_decl..&)) {
         .{ Declaration: pi } => {
             pi.target.eq("xml").should().sum(@loc(), t);
-            pi.body.should().eq("version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"").sum(@loc(), t);
+            pi.body
+                .should()
+                .eq("version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"")
+                .sum(@loc(), t);
         },
         _ => t.fail_at(@loc(), "expected full XML declaration"),
     }
@@ -220,7 +295,9 @@ fn check_errors_have_offsets() void {
     let duplicate_decl_attr_err = duplicate_decl_attr..&.next().should_err().sum(@loc(), t);
     duplicate_decl_attr_err.kind.should().eq(ErrorKind.InvalidDeclaration).sum(@loc(), t);
 
-    let mut out_of_order_decl = reader("<?xml version=\"1.0\" standalone=\"yes\" encoding=\"utf-8\"?><root/>");
+    let mut out_of_order_decl = reader(
+        "<?xml version=\"1.0\" standalone=\"yes\" encoding=\"utf-8\"?><root/>"
+    );
     let out_of_order_decl_err = out_of_order_decl..&.next().should_err().sum(@loc(), t);
     out_of_order_decl_err.kind.should().eq(ErrorKind.InvalidDeclaration).sum(@loc(), t);
 
@@ -289,13 +366,19 @@ fn check_validation() void {
         _ => t.fail_at(@loc(), "expected duplicate attribute"),
     }
 
-    let nested_duplicate = xml.validate("<root><child id=\"1\" id=\"2\"/></root>", gpa).should_err().sum(@loc(), t);
+    let nested_duplicate = xml
+        .validate("<root><child id=\"1\" id=\"2\"/></root>", gpa)
+        .should_err()
+        .sum(@loc(), t);
     match (nested_duplicate.kind) {
         .DuplicateAttribute => {},
         _ => t.fail_at(@loc(), "expected nested duplicate attribute"),
     }
 
-    let many_attrs = xml.validate("<root a0=\"0\" a1=\"1\" a2=\"2\" a3=\"3\" a4=\"4\" a5=\"5\" a6=\"6\" a7=\"7\" a8=\"8\" a9=\"9\" a10=\"10\" a11=\"11\" a12=\"12\" a13=\"13\" a14=\"14\" a7=\"dup\"/>", gpa).should_err().sum(@loc(), t);
+    let many_attrs = xml
+        .validate(MANY_ATTRS_DUPLICATE_XML, gpa)
+        .should_err()
+        .sum(@loc(), t);
     match (many_attrs.kind) {
         .DuplicateAttribute => {},
         _ => t.fail_at(@loc(), "expected duplicate among many attributes"),
@@ -410,7 +493,10 @@ fn check_namespace_index_queries() void {
     let t = test.report(io.stderr())..&;
     let page = page()..&;
     let gpa = gpa().on(page)..&;
-    let index = xml.build_index("<root xmlns=\"urn:root\" xmlns:x=\"urn:x\"><child/><x:child/><scope xmlns=\"urn:inner\"><child/></scope></root>", gpa).should_ok().sum(@loc(), t)..&;
+    let index = xml
+        .build_index(NAMESPACE_INDEX_XML, gpa)
+        .should_ok()
+        .sum(@loc(), t)..&;
     defer index.deinit(gpa);
 
     let root_id = index.root().should_some().sum(@loc(), t);
@@ -419,16 +505,25 @@ fn check_namespace_index_queries() void {
     root_uri.raw.should().eq("urn:root").sum(@loc(), t);
     root_name.local.should().eq("root").sum(@loc(), t);
 
-    let default_child = index.first_child_ns(root_id, "urn:root", "child").should_some().sum(@loc(), t);
+    let default_child = index
+        .first_child_ns(root_id, "urn:root", "child")
+        .should_some()
+        .sum(@loc(), t);
     let default_child_node = index.get(default_child).should_some().sum(@loc(), t);
     default_child_node.element.name.eq("child").should().sum(@loc(), t);
 
-    let prefixed_child = index.first_child_ns(root_id, "urn:x", "child").should_some().sum(@loc(), t);
+    let prefixed_child = index
+        .first_child_ns(root_id, "urn:x", "child")
+        .should_some()
+        .sum(@loc(), t);
     let prefixed_child_node = index.get(prefixed_child).should_some().sum(@loc(), t);
     prefixed_child_node.element.name.eq("x:child").should().sum(@loc(), t);
 
     let scope_id = index.first_child_named(root_id, "scope").should_some().sum(@loc(), t);
-    let inner_child = index.first_child_ns(scope_id, "urn:inner", "child").should_some().sum(@loc(), t);
+    let inner_child = index
+        .first_child_ns(scope_id, "urn:inner", "child")
+        .should_some()
+        .sum(@loc(), t);
     let inner_name = index.resolved_name(inner_child).should_some().sum(@loc(), t);
     let inner_uri = inner_name.uri.should_some().sum(@loc(), t);
     inner_uri.raw.should().eq("urn:inner").sum(@loc(), t);
@@ -438,7 +533,10 @@ fn check_borrowed_index() void {
     let t = test.report(io.stderr())..&;
     let page = page()..&;
     let gpa = gpa().on(page)..&;
-    let index = xml.build_index("<root><item id=\"a\"><leaf/></item><item id=\"b\"/><other/></root>", gpa).should_ok().sum(@loc(), t)..&;
+    let index = xml
+        .build_index(BORROWED_INDEX_XML, gpa)
+        .should_ok()
+        .sum(@loc(), t)..&;
     defer index.deinit(gpa);
 
     index.len().should().eq(5).sum(@loc(), t);
@@ -456,7 +554,10 @@ fn check_borrowed_index() void {
     let leaf = index.get(leaf_id).should_some().sum(@loc(), t);
     leaf.depth.should().eq(2).sum(@loc(), t);
 
-    let second_item_id = index.next_sibling_named(first_item_id, "item").should_some().sum(@loc(), t);
+    let second_item_id = index
+        .next_sibling_named(first_item_id, "item")
+        .should_some()
+        .sum(@loc(), t);
     let second_item = index.get(second_item_id).should_some().sum(@loc(), t);
     second_item.element.name.eq("item").should().sum(@loc(), t);
     index.next_sibling_named(second_item_id, "item").should_none().sum(@loc(), t);
@@ -468,7 +569,7 @@ fn check_render_round_trip() void {
     let t = test.report(io.stderr())..&;
     let page = page()..&;
     let gpa = gpa().on(page)..&;
-    let source = "<?xml version=\"1.0\"?><root a=\"1\"><child/>text<![CDATA[raw]]><!--note--><?go now?></root>";
+    let source = RENDER_ROUND_TRIP_XML;
     let mut out = base.coll.string();
     defer out..&.deinit(gpa);
     let writer = out..&.writer(gpa)..&;
@@ -480,7 +581,10 @@ fn check_owned_document_tree() void {
     let t = test.report(io.stderr())..&;
     let page = page()..&;
     let gpa = gpa().on(page)..&;
-    let doc = xml.clone_owned_document("<root><item id=\"a\"><leaf/></item><item id=\"b\"/></root>", gpa).should_ok().sum(@loc(), t)..&;
+    let doc = xml
+        .clone_owned_document(OWNED_DOCUMENT_XML, gpa)
+        .should_ok()
+        .sum(@loc(), t)..&;
     defer doc.deinit(gpa);
 
     doc.len().should().eq(4).sum(@loc(), t);

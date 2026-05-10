@@ -1,7 +1,15 @@
 use base.coll.{list, map};
 use base.mem.alloc.Allocator;
 
-use ..{Element, Error, Event, Name, Reader, ValidateError, ValidateErrorKind};
+use ..{
+    Element,
+    Error,
+    Event,
+    Name,
+    Reader,
+    ValidateError,
+    ValidateErrorKind,
+};
 
 fn validate_err(kind: ValidateErrorKind, offset: usize) ValidateError {
     return .{ kind, offset };
@@ -20,7 +28,11 @@ fn is_ignorable_text(raw: &[u8]) bool {
     return true;
 }
 
-fn has_duplicate_attributes(element: Element, alloc: &mut Allocator, event_start: usize) bool!ValidateError {
+fn has_duplicate_attributes(
+    element: Element,
+    alloc: &mut Allocator,
+    event_start: usize,
+) bool!ValidateError {
     let seen = map[&[u8], bool]()..&;
     defer seen.deinit(alloc);
     let mut cursor = element.attributes();
@@ -56,11 +68,13 @@ impl &mut Reader {
                         return .{ Err: validate_err(.DuplicateAttribute, event_start) };
                     }
                     if (closed_root and !is_ignorable_text(element.raw)) {
-                        return .{ Err: validate_err(.MultipleRoots, self.index - #element.raw) };
+                        let offset = self.index - #element.raw;
+                        return .{ Err: validate_err(.MultipleRoots, offset) };
                     }
                     if (stack.is_empty()) {
                         if (saw_root) {
-                            return .{ Err: validate_err(.MultipleRoots, self.index - #element.raw) };
+                            let offset = self.index - #element.raw;
+                            return .{ Err: validate_err(.MultipleRoots, offset) };
                         }
                         saw_root = true;
                     }
@@ -74,7 +88,8 @@ impl &mut Reader {
                     }
                     if (stack.is_empty()) {
                         if (saw_root) {
-                            return .{ Err: validate_err(.MultipleRoots, self.index - #element.raw) };
+                            let offset = self.index - #element.raw;
+                            return .{ Err: validate_err(.MultipleRoots, offset) };
                         }
                         saw_root = true;
                         closed_root = true;
@@ -93,11 +108,17 @@ impl &mut Reader {
                 },
                 .{ Text: text } => {
                     if (closed_root and !is_ignorable_text(text.raw)) {
-                        return .{ Err: validate_err(.MultipleRoots, self.index - #text.raw) };
+                        let offset = self.index - #text.raw;
+                        return .{ Err: validate_err(.MultipleRoots, offset) };
                     }
                 },
                 .{ Declaration: _ } => {
-                    if (event_start > 3 or saw_declaration or saw_root or closed_root or !stack.is_empty()) {
+                    let invalid_declaration = event_start > 3
+                        or saw_declaration
+                        or saw_root
+                        or closed_root
+                        or !stack.is_empty();
+                    if (invalid_declaration) {
                         return .{ Err: validate_err(.{ Parse: .InvalidDeclaration }, event_start) };
                     }
                     saw_declaration = true;

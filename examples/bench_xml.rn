@@ -16,16 +16,25 @@ const HEADER =
     \\  <types>
 ;
 const TYPE_ROW =
-    \\    <type category="struct" name="VkExample" returnedonly="false"><member><type>uint32_t</type> <name>flags</name></member></type>
+    \\    <type category="struct" name="VkExample" returnedonly="false">
+    \\      <member><type>uint32_t</type> <name>flags</name></member>
+    \\    </type>
 ;
 const COMMAND_ROW =
-    \\    <command successcodes="VK_SUCCESS" errorcodes="VK_ERROR_UNKNOWN"><proto><type>VkResult</type> <name>vkExample</name></proto><param><type>VkDevice</type> <name>device</name></param></command>
+    \\    <command successcodes="VK_SUCCESS" errorcodes="VK_ERROR_UNKNOWN">
+    \\      <proto><type>VkResult</type> <name>vkExample</name></proto>
+    \\      <param><type>VkDevice</type> <name>device</name></param>
+    \\    </command>
 ;
 const FEATURE_ROW =
-    \\    <feature api="vulkan" name="VK_VERSION_1_3" number="1.3"><require><command name="vkExample"/><type name="VkExample"/></require></feature>
+    \\    <feature api="vulkan" name="VK_VERSION_1_3" number="1.3">
+    \\      <require><command name="vkExample"/><type name="VkExample"/></require>
+    \\    </feature>
 ;
 const EXTENSION_ROW =
-    \\    <extension name="VK_KHR_example" number="1" supported="vulkan"><require><enum name="VK_KHR_EXAMPLE_SPEC_VERSION" value="1"/></require></extension>
+    \\    <extension name="VK_KHR_example" number="1" supported="vulkan">
+    \\      <require><enum name="VK_KHR_EXAMPLE_SPEC_VERSION" value="1"/></require>
+    \\    </extension>
 ;
 const FOOTER =
     \\  </types>
@@ -89,7 +98,9 @@ fn print_stats(
 
 fn build_sample(alloc: &mut base.mem.alloc.Allocator) ?String {
     let mut out = string();
-    if (!out..&.reserve(alloc, #HEADER + #FOOTER + SAMPLE_REPETITIONS * (#TYPE_ROW + #COMMAND_ROW + #FEATURE_ROW + #EXTENSION_ROW))) {
+    let row_bytes = #TYPE_ROW + #COMMAND_ROW + #FEATURE_ROW + #EXTENSION_ROW;
+    let reserve_bytes = #HEADER + #FOOTER + SAMPLE_REPETITIONS * row_bytes;
+    if (!out..&.reserve(alloc, reserve_bytes)) {
         return .None;
     }
     if (!out..&.push_str(alloc, HEADER)) return .None;
@@ -103,7 +114,11 @@ fn build_sample(alloc: &mut base.mem.alloc.Allocator) ?String {
     return .{ Some: out };
 }
 
-fn make_input(alloc: &mut base.mem.alloc.Allocator, storage: String, label_text: &[u8]) ?BenchInput {
+fn make_input(
+    alloc: &mut base.mem.alloc.Allocator,
+    storage: String,
+    label_text: &[u8],
+) ?BenchInput {
     let mut label_storage = string();
     if (!label_storage..&.push_str(alloc, label_text)) {
         return .None;
@@ -124,18 +139,26 @@ fn load_input(alloc: &mut base.mem.alloc.Allocator, path: ?&[u8]) BenchInput!fs.
                 let .{ Ok: storage } = stdin..&.read_to_string(alloc) else {
                     .{ Err: err } => return .{ Err: err },
                 };
-                let .{ Some: input } = make_input(alloc, storage, "stdin") else return .{ Err: fs.Error.OutOfMemory };
+                let .{ Some: input } = make_input(alloc, storage, "stdin") else {
+                    return .{ Err: fs.Error.OutOfMemory };
+                };
                 return .{ Ok: input };
             }
             let .{ Ok: storage } = value.path().read_to_string(alloc) else {
                 .{ Err: err } => return .{ Err: err },
             };
-            let .{ Some: input } = make_input(alloc, storage, value) else return .{ Err: fs.Error.OutOfMemory };
+            let .{ Some: input } = make_input(alloc, storage, value) else {
+                return .{ Err: fs.Error.OutOfMemory };
+            };
             return .{ Ok: input };
         },
         .None => {
-            let .{ Some: storage } = build_sample(alloc) else return .{ Err: fs.Error.OutOfMemory };
-            let .{ Some: input } = make_input(alloc, storage, DEFAULT_INPUT_LABEL) else return .{ Err: fs.Error.OutOfMemory };
+            let .{ Some: storage } = build_sample(alloc) else {
+                return .{ Err: fs.Error.OutOfMemory };
+            };
+            let .{ Some: input } = make_input(alloc, storage, DEFAULT_INPUT_LABEL) else {
+                return .{ Err: fs.Error.OutOfMemory };
+            };
             return .{ Ok: input };
         },
     }
@@ -166,7 +189,12 @@ fn bench_parse(iterations: usize, input_label: &[u8], text: &[u8]) bool {
     return true;
 }
 
-fn bench_validate(iterations: usize, input_label: &[u8], text: &[u8], alloc: &mut base.mem.alloc.Allocator) bool {
+fn bench_validate(
+    iterations: usize,
+    input_label: &[u8],
+    text: &[u8],
+    alloc: &mut base.mem.alloc.Allocator,
+) bool {
     let mut sink = usize.{0};
     let start = time.monotonic().now();
     for (_: range[usize](0, iterations)) {
@@ -193,7 +221,12 @@ fn bench_decode(iterations: usize, label: &[u8], text: &[u8]) bool {
     return true;
 }
 
-fn run_bench(name: &[u8], iterations: usize, input: &BenchInput, alloc: &mut base.mem.alloc.Allocator) bool {
+fn run_bench(
+    name: &[u8],
+    iterations: usize,
+    input: &BenchInput,
+    alloc: &mut base.mem.alloc.Allocator,
+) bool {
     if (name == "parse") return bench_parse(iterations, input.label, input.text);
     if (name == "validate") return bench_validate(iterations, input.label, input.text, alloc);
     if (name == "decode_refs") return bench_decode(iterations, "decode_refs", DECODE_WITH_REFS);

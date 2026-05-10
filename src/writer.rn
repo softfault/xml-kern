@@ -27,7 +27,12 @@ fn write_all(writer: &mut Write, text: &[u8], offset: usize) void!RenderError {
     return .{ Ok: {} };
 }
 
-fn write_pi(writer: &mut Write, open: &[u8], pi: ProcessingInstruction, offset: usize) void!RenderError {
+fn write_pi(
+    writer: &mut Write,
+    open: &[u8],
+    pi: ProcessingInstruction,
+    offset: usize,
+) void!RenderError {
     write_all(writer, open, offset).!;
     write_all(writer, pi.target.raw, offset).!;
     if (#pi.body > 0) {
@@ -38,7 +43,13 @@ fn write_pi(writer: &mut Write, open: &[u8], pi: ProcessingInstruction, offset: 
     return .{ Ok: {} };
 }
 
-fn write_element_open(writer: &mut Write, marker: &[u8], element: Element, suffix: &[u8], offset: usize) void!RenderError {
+fn write_element_open(
+    writer: &mut Write,
+    marker: &[u8],
+    element: Element,
+    suffix: &[u8],
+    offset: usize,
+) void!RenderError {
     write_all(writer, marker, offset).!;
     write_all(writer, element.name.raw, offset).!;
     if (#element.attributes_raw > 0) {
