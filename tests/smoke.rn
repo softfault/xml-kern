@@ -54,49 +54,92 @@ const FULL_DECL_XML =
 
 fn expect_next(r: &mut xml.Reader) Event {
     let t = test.report(io.stderr())..&;
-    return r.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
+    return r
+        .next()
+        .should_ok()
+        .sum(@loc(), t)
+        .should_some()
+        .sum(@loc(), t);
 }
 
 fn expect_attr(attrs: &mut xml.AttributeCursor) xml.Attribute {
     let t = test.report(io.stderr())..&;
-    return attrs.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
+    return attrs
+        .next()
+        .should_ok()
+        .sum(@loc(), t)
+        .should_some()
+        .sum(@loc(), t);
 }
 
 fn expect_no_attr(attrs: &mut xml.AttributeCursor) void {
     let t = test.report(io.stderr())..&;
-    attrs.next().should_ok().sum(@loc(), t).should_none().sum(@loc(), t);
+    attrs
+        .next()
+        .should_ok()
+        .sum(@loc(), t)
+        .should_none()
+        .sum(@loc(), t);
 }
 
 fn expect_element(elements: &mut xml.MappedReader[xml.Element]) xml.Element {
     let t = test.report(io.stderr())..&;
-    return elements.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
+    return elements
+        .next()
+        .should_ok()
+        .sum(@loc(), t)
+        .should_some()
+        .sum(@loc(), t);
 }
 
 fn expect_no_element(elements: &mut xml.MappedReader[xml.Element]) void {
     let t = test.report(io.stderr())..&;
-    elements.next().should_ok().sum(@loc(), t).should_none().sum(@loc(), t);
+    elements
+        .next()
+        .should_ok()
+        .sum(@loc(), t)
+        .should_none()
+        .sum(@loc(), t);
 }
 
 fn expect_name(names: &mut xml.MappedReader[xml.Name]) xml.Name {
     let t = test.report(io.stderr())..&;
-    return names.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
+    return names
+        .next()
+        .should_ok()
+        .sum(@loc(), t)
+        .should_some()
+        .sum(@loc(), t);
 }
 
 fn expect_no_name(names: &mut xml.MappedReader[xml.Name]) void {
     let t = test.report(io.stderr())..&;
-    names.next().should_ok().sum(@loc(), t).should_none().sum(@loc(), t);
+    names
+        .next()
+        .should_ok()
+        .sum(@loc(), t)
+        .should_none()
+        .sum(@loc(), t);
 }
 
 fn expect_prefix_errors(source: &[u8], min_len: usize, complete_events: usize) void {
     let t = test.report(io.stderr())..&;
     for (split: range[usize](min_len, #source)) {
         let mut r = reader(source.&[0 .. split]);
-        _ = r..&.next().should_err().sum(@loc(), t);
+        _ = r
+            ..&.next()
+            .should_err()
+            .sum(@loc(), t);
     }
 
     let mut complete = reader(source);
     for (_: range[usize](0, complete_events)) {
-        _ = complete..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t);
+        _ = complete
+            ..&.next()
+            .should_ok()
+            .sum(@loc(), t)
+            .should_some()
+            .sum(@loc(), t);
     }
 }
 
@@ -106,28 +149,49 @@ fn check_basic_events() void {
 
     match (expect_next(r..&)) {
         .{ Declaration: pi } => {
-            pi.target.eq("xml").should().sum(@loc(), t);
+            pi.target
+                .eq("xml")
+                .should()
+                .sum(@loc(), t);
         },
         _ => t.fail_at(@loc(), "expected XML declaration"),
     }
 
     match (expect_next(r..&)) {
         .{ Text: text } => {
-            text.raw.should().eq("\n").sum(@loc(), t);
+            text.raw
+                .should()
+                .eq("\n")
+                .sum(@loc(), t);
         },
         _ => t.fail_at(@loc(), "expected declaration whitespace"),
     }
 
     match (expect_next(r..&)) {
         .{ Start: root } => {
-            root.name.eq("root").should().sum(@loc(), t);
+            root.name
+                .eq("root")
+                .should()
+                .sum(@loc(), t);
             let mut attrs = root.attributes();
             let id = expect_attr(attrs..&);
             let flag = expect_attr(attrs..&);
-            id.name.eq("id").should().sum(@loc(), t);
-            id.value.raw.should().eq("7").sum(@loc(), t);
-            flag.name.eq("flag").should().sum(@loc(), t);
-            flag.value.raw.should().eq("yes").sum(@loc(), t);
+            id.name
+                .eq("id")
+                .should()
+                .sum(@loc(), t);
+            id.value.raw
+                .should()
+                .eq("7")
+                .sum(@loc(), t);
+            flag.name
+                .eq("flag")
+                .should()
+                .sum(@loc(), t);
+            flag.value.raw
+                .should()
+                .eq("yes")
+                .sum(@loc(), t);
             expect_no_attr(attrs..&);
         },
         _ => t.fail_at(@loc(), "expected root start"),
@@ -135,8 +199,14 @@ fn check_basic_events() void {
 
     match (expect_next(r..&)) {
         .{ Text: text } => {
-            text.raw.should().eq("hello &amp; ").sum(@loc(), t);
-            text.contains_reference().should().sum(@loc(), t);
+            text.raw
+                .should()
+                .eq("hello &amp; ")
+                .sum(@loc(), t);
+            text
+                .contains_reference()
+                .should()
+                .sum(@loc(), t);
         },
         _ => t.fail_at(@loc(), "expected text"),
     }
@@ -150,30 +220,51 @@ fn check_basic_events() void {
     }
     match (expect_next(r..&)) {
         .{ ProcessingInstruction: pi } => {
-            pi.target.eq("go").should().sum(@loc(), t);
-            pi.body.should().eq("now").sum(@loc(), t);
+            pi.target
+                .eq("go")
+                .should()
+                .sum(@loc(), t);
+            pi.body
+                .should()
+                .eq("now")
+                .sum(@loc(), t);
         },
         _ => t.fail_at(@loc(), "expected processing instruction"),
     }
     match (expect_next(r..&)) {
         .{ Text: text } => {
-            text.raw.should().eq("\n  ").sum(@loc(), t);
+            text.raw
+                .should()
+                .eq("\n  ")
+                .sum(@loc(), t);
         },
         _ => t.fail_at(@loc(), "expected element whitespace"),
     }
     match (expect_next(r..&)) {
         .{ Empty: empty } => {
-            empty.name.eq("empty").should().sum(@loc(), t);
+            empty.name
+                .eq("empty")
+                .should()
+                .sum(@loc(), t);
             let mut attrs = empty.attributes();
             let attr = expect_attr(attrs..&);
-            attr.name.eq("a").should().sum(@loc(), t);
-            attr.value.raw.should().eq("b").sum(@loc(), t);
+            attr.name
+                .eq("a")
+                .should()
+                .sum(@loc(), t);
+            attr.value.raw
+                .should()
+                .eq("b")
+                .sum(@loc(), t);
         },
         _ => t.fail_at(@loc(), "expected empty element"),
     }
     match (expect_next(r..&)) {
         .{ Text: text } => {
-            text.raw.should().eq("\n").sum(@loc(), t);
+            text.raw
+                .should()
+                .eq("\n")
+                .sum(@loc(), t);
         },
         _ => t.fail_at(@loc(), "expected trailing element whitespace"),
     }
@@ -181,28 +272,53 @@ fn check_basic_events() void {
         .{ End: name } => name.eq("root").should().sum(@loc(), t),
         _ => t.fail_at(@loc(), "expected root end"),
     }
-    r..&.next().should_ok().sum(@loc(), t).should_none().sum(@loc(), t);
-    r.&.is_done().should().sum(@loc(), t);
+    r
+        ..&.next()
+        .should_ok()
+        .sum(@loc(), t)
+        .should_none()
+        .sum(@loc(), t);
+    r.&.is_done()
+        .should()
+        .sum(@loc(), t);
 }
 
 fn check_decode_entities() void {
     let t = test.report(io.stderr())..&;
     let text = xml.EncodedText.{ raw: "a&amp;b&lt;c&gt;&apos;&quot;&#65;&#x1F600;" };
-    text.decoded_size().should_ok().sum(@loc(), t).should().eq(13).sum(@loc(), t);
+    text
+        .decoded_size()
+        .should_ok()
+        .sum(@loc(), t)
+        .should()
+        .eq(13)
+        .sum(@loc(), t);
 
     let mut out = [32]u8.{undef};
-    let written = text.write_decoded(out..&[0 .. 32]).should_ok().sum(@loc(), t);
+    let written = text
+        .write_decoded(out..&[0 .. 32])
+        .should_ok()
+        .sum(@loc(), t);
     let expected = [13]u8.{
         b'a', b'&', b'b', b'<', b'c', b'>', b'\'', b'"', b'A',
         0xF0, 0x9F, 0x98, 0x80,
     };
-    out.&[0 .. written].should().eq(expected.&[0 .. 13]).sum(@loc(), t);
+    out.&[0 .. written]
+        .should()
+        .eq(expected.&[0 .. 13])
+        .sum(@loc(), t);
 
     let page = page()..&;
     let gpa = gpa().on(page)..&;
-    let mut cloned = text.clone_decoded(gpa).should_ok().sum(@loc(), t);
+    let mut cloned = text
+        .clone_decoded(gpa)
+        .should_ok()
+        .sum(@loc(), t);
     defer cloned..&.deinit(gpa);
-    cloned.&.as_str().should().eq(out.&[0 .. written]).sum(@loc(), t);
+    cloned.&.as_str()
+        .should()
+        .eq(out.&[0 .. written])
+        .sum(@loc(), t);
 }
 
 fn check_doctype_and_bom() void {
@@ -228,7 +344,12 @@ fn check_doctype_and_bom() void {
         .{ Empty: note } => note.name.eq("note").should().sum(@loc(), t),
         _ => t.fail_at(@loc(), "expected empty note"),
     }
-    r..&.next().should_ok().sum(@loc(), t).should_none().sum(@loc(), t);
+    r
+        ..&.next()
+        .should_ok()
+        .sum(@loc(), t)
+        .should_none()
+        .sum(@loc(), t);
 }
 
 fn check_errors_have_offsets() void {
@@ -236,7 +357,10 @@ fn check_errors_have_offsets() void {
     let mut full_decl = reader(FULL_DECL_XML);
     match (expect_next(full_decl..&)) {
         .{ Declaration: pi } => {
-            pi.target.eq("xml").should().sum(@loc(), t);
+            pi.target
+                .eq("xml")
+                .should()
+                .sum(@loc(), t);
             pi.body
                 .should()
                 .eq("version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"")
@@ -250,77 +374,170 @@ fn check_errors_have_offsets() void {
         .{ Start: root } => root.name.eq("root").should().sum(@loc(), t),
         _ => t.fail_at(@loc(), "expected root"),
     }
-    let err = r..&.next().should_err().sum(@loc(), t);
-    err.kind.should().eq(ErrorKind.UnterminatedComment).sum(@loc(), t);
-    err.offset.should().eq(6).sum(@loc(), t);
+    let err = r
+        ..&.next()
+        .should_err()
+        .sum(@loc(), t);
+    err.kind
+        .should()
+        .eq(ErrorKind.UnterminatedComment)
+        .sum(@loc(), t);
+    err.offset
+        .should()
+        .eq(6)
+        .sum(@loc(), t);
 
-    let bad = xml.EncodedText.{ raw: "&wat;" }.decoded_size().should_err().sum(@loc(), t);
-    bad.kind.should().eq(DecodeErrorKind.UnknownEntity).sum(@loc(), t);
-    bad.offset.should().eq(0).sum(@loc(), t);
+    let bad = xml.EncodedText.{ raw: "&wat;" }
+        .decoded_size()
+        .should_err()
+        .sum(@loc(), t);
+    bad.kind
+        .should()
+        .eq(DecodeErrorKind.UnknownEntity)
+        .sum(@loc(), t);
+    bad.offset
+        .should()
+        .eq(0)
+        .sum(@loc(), t);
 
     let loc = xml.locate("a\nbc", 3);
-    loc.line.should().eq(2).sum(@loc(), t);
-    loc.column.should().eq(2).sum(@loc(), t);
+    loc.line
+        .should()
+        .eq(2)
+        .sum(@loc(), t);
+    loc.column
+        .should()
+        .eq(2)
+        .sum(@loc(), t);
 
     let mut bad_comment = reader("<root><!--bad--body--></root>");
     match (expect_next(bad_comment..&)) {
         .{ Start: root } => root.name.eq("root").should().sum(@loc(), t),
         _ => t.fail_at(@loc(), "expected root"),
     }
-    let comment_err = bad_comment..&.next().should_err().sum(@loc(), t);
-    comment_err.kind.should().eq(ErrorKind.InvalidComment).sum(@loc(), t);
-    comment_err.offset.should().eq(13).sum(@loc(), t);
+    let comment_err = bad_comment
+        ..&.next()
+        .should_err()
+        .sum(@loc(), t);
+    comment_err.kind
+        .should()
+        .eq(ErrorKind.InvalidComment)
+        .sum(@loc(), t);
+    comment_err.offset
+        .should()
+        .eq(13)
+        .sum(@loc(), t);
 
     let mut bad_text = reader("<root>bad ]]></root>");
     match (expect_next(bad_text..&)) {
         .{ Start: root } => root.name.eq("root").should().sum(@loc(), t),
         _ => t.fail_at(@loc(), "expected root"),
     }
-    let text_err = bad_text..&.next().should_err().sum(@loc(), t);
-    text_err.kind.should().eq(ErrorKind.InvalidCharacterData).sum(@loc(), t);
+    let text_err = bad_text
+        ..&.next()
+        .should_err()
+        .sum(@loc(), t);
+    text_err.kind
+        .should()
+        .eq(ErrorKind.InvalidCharacterData)
+        .sum(@loc(), t);
 
     let mut late_decl = reader("<root><?xml version=\"1.0\"?></root>");
     match (expect_next(late_decl..&)) {
         .{ Start: root } => root.name.eq("root").should().sum(@loc(), t),
         _ => t.fail_at(@loc(), "expected root"),
     }
-    let decl_err = late_decl..&.next().should_err().sum(@loc(), t);
-    decl_err.kind.should().eq(ErrorKind.InvalidDeclaration).sum(@loc(), t);
+    let decl_err = late_decl
+        ..&.next()
+        .should_err()
+        .sum(@loc(), t);
+    decl_err.kind
+        .should()
+        .eq(ErrorKind.InvalidDeclaration)
+        .sum(@loc(), t);
 
     let mut bad_decl = reader("<?xml encoding=\"utf-8\"?><root/>");
-    let bad_decl_err = bad_decl..&.next().should_err().sum(@loc(), t);
-    bad_decl_err.kind.should().eq(ErrorKind.InvalidDeclaration).sum(@loc(), t);
+    let bad_decl_err = bad_decl
+        ..&.next()
+        .should_err()
+        .sum(@loc(), t);
+    bad_decl_err.kind
+        .should()
+        .eq(ErrorKind.InvalidDeclaration)
+        .sum(@loc(), t);
 
     let mut duplicate_decl_attr = reader("<?xml version=\"1.0\" version=\"1.1\"?><root/>");
-    let duplicate_decl_attr_err = duplicate_decl_attr..&.next().should_err().sum(@loc(), t);
-    duplicate_decl_attr_err.kind.should().eq(ErrorKind.InvalidDeclaration).sum(@loc(), t);
+    let duplicate_decl_attr_err = duplicate_decl_attr
+        ..&.next()
+        .should_err()
+        .sum(@loc(), t);
+    duplicate_decl_attr_err.kind
+        .should()
+        .eq(ErrorKind.InvalidDeclaration)
+        .sum(@loc(), t);
 
     let mut out_of_order_decl = reader(
         "<?xml version=\"1.0\" standalone=\"yes\" encoding=\"utf-8\"?><root/>"
     );
-    let out_of_order_decl_err = out_of_order_decl..&.next().should_err().sum(@loc(), t);
-    out_of_order_decl_err.kind.should().eq(ErrorKind.InvalidDeclaration).sum(@loc(), t);
+    let out_of_order_decl_err = out_of_order_decl
+        ..&.next()
+        .should_err()
+        .sum(@loc(), t);
+    out_of_order_decl_err.kind
+        .should()
+        .eq(ErrorKind.InvalidDeclaration)
+        .sum(@loc(), t);
 
     let mut bad_version_decl = reader("<?xml version=\"2.0\"?><root/>");
-    let bad_version_decl_err = bad_version_decl..&.next().should_err().sum(@loc(), t);
-    bad_version_decl_err.kind.should().eq(ErrorKind.InvalidDeclaration).sum(@loc(), t);
+    let bad_version_decl_err = bad_version_decl
+        ..&.next()
+        .should_err()
+        .sum(@loc(), t);
+    bad_version_decl_err.kind
+        .should()
+        .eq(ErrorKind.InvalidDeclaration)
+        .sum(@loc(), t);
 
     let mut bad_encoding_decl = reader("<?xml version=\"1.0\" encoding=\"1bad\"?><root/>");
-    let bad_encoding_decl_err = bad_encoding_decl..&.next().should_err().sum(@loc(), t);
-    bad_encoding_decl_err.kind.should().eq(ErrorKind.InvalidDeclaration).sum(@loc(), t);
+    let bad_encoding_decl_err = bad_encoding_decl
+        ..&.next()
+        .should_err()
+        .sum(@loc(), t);
+    bad_encoding_decl_err.kind
+        .should()
+        .eq(ErrorKind.InvalidDeclaration)
+        .sum(@loc(), t);
 
     let mut bad_standalone_decl = reader("<?xml version=\"1.0\" standalone=\"maybe\"?><root/>");
-    let bad_standalone_decl_err = bad_standalone_decl..&.next().should_err().sum(@loc(), t);
-    bad_standalone_decl_err.kind.should().eq(ErrorKind.InvalidDeclaration).sum(@loc(), t);
+    let bad_standalone_decl_err = bad_standalone_decl
+        ..&.next()
+        .should_err()
+        .sum(@loc(), t);
+    bad_standalone_decl_err.kind
+        .should()
+        .eq(ErrorKind.InvalidDeclaration)
+        .sum(@loc(), t);
 
     let mut invalid_name = reader("<1root/>");
-    let invalid_name_err = invalid_name..&.next().should_err().sum(@loc(), t);
-    invalid_name_err.kind.should().eq(ErrorKind.InvalidName).sum(@loc(), t);
+    let invalid_name_err = invalid_name
+        ..&.next()
+        .should_err()
+        .sum(@loc(), t);
+    invalid_name_err.kind
+        .should()
+        .eq(ErrorKind.InvalidName)
+        .sum(@loc(), t);
 
     let invalid_utf8_source = [3]u8.{ b'<', 0xC0, b'>' };
     let mut invalid_utf8 = reader(invalid_utf8_source.&[0 .. 3]);
-    let invalid_utf8_err = invalid_utf8..&.next().should_err().sum(@loc(), t);
-    invalid_utf8_err.kind.should().eq(ErrorKind.InvalidName).sum(@loc(), t);
+    let invalid_utf8_err = invalid_utf8
+        ..&.next()
+        .should_err()
+        .sum(@loc(), t);
+    invalid_utf8_err.kind
+        .should()
+        .eq(ErrorKind.InvalidName)
+        .sum(@loc(), t);
 
     let mut unicode_name = reader("<é/>");
     match (expect_next(unicode_name..&)) {
@@ -334,33 +551,51 @@ fn check_validation() void {
     let page = page()..&;
     let gpa = gpa().on(page)..&;
 
-    xml.validate("<root><child/><child>text</child></root>", gpa).should_ok().sum(@loc(), t);
+    xml
+        .validate("<root><child/><child>text</child></root>", gpa)
+        .should_ok()
+        .sum(@loc(), t);
 
-    let mismatch = xml.validate("<root><a></root>", gpa).should_err().sum(@loc(), t);
+    let mismatch = xml
+        .validate("<root><a></root>", gpa)
+        .should_err()
+        .sum(@loc(), t);
     match (mismatch.kind) {
         .MismatchedEnd => {},
         _ => t.fail_at(@loc(), "expected mismatched end"),
     }
 
-    let multiple = xml.validate("<a/><b/>", gpa).should_err().sum(@loc(), t);
+    let multiple = xml
+        .validate("<a/><b/>", gpa)
+        .should_err()
+        .sum(@loc(), t);
     match (multiple.kind) {
         .MultipleRoots => {},
         _ => t.fail_at(@loc(), "expected multiple roots"),
     }
 
-    let missing = xml.validate("   <!-- only comment -->", gpa).should_err().sum(@loc(), t);
+    let missing = xml
+        .validate("   <!-- only comment -->", gpa)
+        .should_err()
+        .sum(@loc(), t);
     match (missing.kind) {
         .MissingRoot => {},
         _ => t.fail_at(@loc(), "expected missing root"),
     }
 
-    let parse = xml.validate("<root><!-- bad", gpa).should_err().sum(@loc(), t);
+    let parse = xml
+        .validate("<root><!-- bad", gpa)
+        .should_err()
+        .sum(@loc(), t);
     match (parse.kind) {
         .{ Parse: kind } => kind.should().eq(ErrorKind.UnterminatedComment).sum(@loc(), t),
         _ => t.fail_at(@loc(), "expected parse error"),
     }
 
-    let duplicate = xml.validate("<root a=\"1\" a=\"2\"/>", gpa).should_err().sum(@loc(), t);
+    let duplicate = xml
+        .validate("<root a=\"1\" a=\"2\"/>", gpa)
+        .should_err()
+        .sum(@loc(), t);
     match (duplicate.kind) {
         .DuplicateAttribute => {},
         _ => t.fail_at(@loc(), "expected duplicate attribute"),
@@ -388,22 +623,51 @@ fn check_validation() void {
 fn check_expect_combinators() void {
     let t = test.report(io.stderr())..&;
     let mut r = reader("<!--meta--><root><leaf/></root>");
-    let root = r..&.expect_start("root").should_ok().sum(@loc(), t);
-    root.name.eq("root").should().sum(@loc(), t);
-    let leaf = r..&.expect_empty("leaf").should_ok().sum(@loc(), t);
-    leaf.name.eq("leaf").should().sum(@loc(), t);
-    r..&.expect_end("root").should_ok().sum(@loc(), t).eq("root").should().sum(@loc(), t);
-    r..&.next_significant().should_ok().sum(@loc(), t).should_none().sum(@loc(), t);
+    let root = r
+        ..&.expect_start("root")
+        .should_ok()
+        .sum(@loc(), t);
+    root.name
+        .eq("root")
+        .should()
+        .sum(@loc(), t);
+    let leaf = r
+        ..&.expect_empty("leaf")
+        .should_ok()
+        .sum(@loc(), t);
+    leaf.name
+        .eq("leaf")
+        .should()
+        .sum(@loc(), t);
+    r
+        ..&.expect_end("root")
+        .should_ok()
+        .sum(@loc(), t)
+        .eq("root")
+        .should()
+        .sum(@loc(), t);
+    r
+        ..&.next_significant()
+        .should_ok()
+        .sum(@loc(), t)
+        .should_none()
+        .sum(@loc(), t);
 
     let mut wrong = reader("<root/>");
-    let err = wrong..&.expect_start("root").should_err().sum(@loc(), t);
+    let err = wrong
+        ..&.expect_start("root")
+        .should_err()
+        .sum(@loc(), t);
     match (err.kind) {
         .UnexpectedEvent => {},
         _ => t.fail_at(@loc(), "expected unexpected event"),
     }
 
     let mut mismatch = reader("<other></other>");
-    let mismatch_err = mismatch..&.expect_start("root").should_err().sum(@loc(), t);
+    let mismatch_err = mismatch
+        ..&.expect_start("root")
+        .should_err()
+        .sum(@loc(), t);
     match (mismatch_err.kind) {
         .NameMismatch => {},
         _ => t.fail_at(@loc(), "expected name mismatch"),
@@ -417,12 +681,33 @@ fn check_stream_combinators() void {
     let mut stats = xml.SinkStats.{};
     let stream = &mut xml.EventStream.{ counted_reader..& };
     let sink = &mut xml.EventSink.{ stats..& };
-    xml.drain_events(stream, sink).should_ok().sum(@loc(), t).should().eq(4).sum(@loc(), t);
-    stats.events.should().eq(4).sum(@loc(), t);
-    stats.starts.should().eq(1).sum(@loc(), t);
-    stats.empties.should().eq(1).sum(@loc(), t);
-    stats.ends.should().eq(1).sum(@loc(), t);
-    stats.text.should().eq(1).sum(@loc(), t);
+    xml
+        .drain_events(stream, sink)
+        .should_ok()
+        .sum(@loc(), t)
+        .should()
+        .eq(4)
+        .sum(@loc(), t);
+    stats.events
+        .should()
+        .eq(4)
+        .sum(@loc(), t);
+    stats.starts
+        .should()
+        .eq(1)
+        .sum(@loc(), t);
+    stats.empties
+        .should()
+        .eq(1)
+        .sum(@loc(), t);
+    stats.ends
+        .should()
+        .eq(1)
+        .sum(@loc(), t);
+    stats.text
+        .should()
+        .eq(1)
+        .sum(@loc(), t);
 
     let mut noisy = reader("<!--meta--> \n <root><?go?></root>");
     let mut significant = noisy..&.filter_significant();
@@ -434,19 +719,39 @@ fn check_stream_combinators() void {
         .{ End: name } => name.eq("root").should().sum(@loc(), t),
         _ => t.fail_at(@loc(), "expected significant end"),
     }
-    significant..&.next().should_ok().sum(@loc(), t).should_none().sum(@loc(), t);
+    significant
+        ..&.next()
+        .should_ok()
+        .sum(@loc(), t)
+        .should_none()
+        .sum(@loc(), t);
 
     let mut source = reader("<root><leaf/>tail</root>");
     let mut elements = source..&.elements();
-    expect_element(elements..&).name.eq("root").should().sum(@loc(), t);
-    expect_element(elements..&).name.eq("leaf").should().sum(@loc(), t);
+    expect_element(elements..&).name
+        .eq("root")
+        .should()
+        .sum(@loc(), t);
+    expect_element(elements..&).name
+        .eq("leaf")
+        .should()
+        .sum(@loc(), t);
     expect_no_element(elements..&);
 
     let mut named_source = reader("<root><leaf/></root>");
     let mut names = named_source..&.names();
-    expect_name(names..&).eq("root").should().sum(@loc(), t);
-    expect_name(names..&).eq("leaf").should().sum(@loc(), t);
-    expect_name(names..&).eq("root").should().sum(@loc(), t);
+    expect_name(names..&)
+        .eq("root")
+        .should()
+        .sum(@loc(), t);
+    expect_name(names..&)
+        .eq("leaf")
+        .should()
+        .sum(@loc(), t);
+    expect_name(names..&)
+        .eq("root")
+        .should()
+        .sum(@loc(), t);
     expect_no_name(names..&);
 }
 
@@ -456,8 +761,16 @@ fn check_namespace_views() void {
     match (expect_next(r..&)) {
         .{ Empty: root } => {
             let root_name = root.&.qualified_name();
-            root_name.prefix.should_some().sum(@loc(), t).should().eq("x").sum(@loc(), t);
-            root_name.local.should().eq("root").sum(@loc(), t);
+            root_name.prefix
+                .should_some()
+                .sum(@loc(), t)
+                .should()
+                .eq("x")
+                .sum(@loc(), t);
+            root_name.local
+                .should()
+                .eq("root")
+                .sum(@loc(), t);
 
             let mut attrs = root.attributes();
             let default_ns = expect_attr(attrs..&);
@@ -469,8 +782,14 @@ fn check_namespace_views() void {
             let prefixed_ns = expect_attr(attrs..&);
             match (prefixed_ns.&.namespace_declaration().should_some().sum(@loc(), t)) {
                 .{ Prefixed: binding } => {
-                    binding.prefix.should().eq("x").sum(@loc(), t);
-                    binding.uri.raw.should().eq("urn:x").sum(@loc(), t);
+                    binding.prefix
+                        .should()
+                        .eq("x")
+                        .sum(@loc(), t);
+                    binding.uri.raw
+                        .should()
+                        .eq("urn:x")
+                        .sum(@loc(), t);
                 },
                 _ => t.fail_at(@loc(), "expected prefixed namespace"),
             }
@@ -478,12 +797,26 @@ fn check_namespace_views() void {
             let id = expect_attr(attrs..&);
             (!id.&.is_namespace_declaration()).should().sum(@loc(), t);
             let id_name = id.&.qualified_name();
-            id_name.prefix.should_some().sum(@loc(), t).should().eq("x").sum(@loc(), t);
-            id_name.local.should().eq("id").sum(@loc(), t);
+            id_name.prefix
+                .should_some()
+                .sum(@loc(), t)
+                .should()
+                .eq("x")
+                .sum(@loc(), t);
+            id_name.local
+                .should()
+                .eq("id")
+                .sum(@loc(), t);
 
             let plain = expect_attr(attrs..&);
-            plain.&.qualified_name().prefix.should_none().sum(@loc(), t);
-            plain.name.&.local().should().eq("plain").sum(@loc(), t);
+            let plain_name = plain.&.qualified_name();
+            plain_name.prefix
+                .should_none()
+                .sum(@loc(), t);
+            plain.name.&.local()
+                .should()
+                .eq("plain")
+                .sum(@loc(), t);
         },
         _ => t.fail_at(@loc(), "expected namespaced empty element"),
     }
@@ -499,34 +832,67 @@ fn check_namespace_index_queries() void {
         .sum(@loc(), t)..&;
     defer index.deinit(gpa);
 
-    let root_id = index.root().should_some().sum(@loc(), t);
-    let root_name = index.resolved_name(root_id).should_some().sum(@loc(), t);
+    let root_id = index
+        .root()
+        .should_some()
+        .sum(@loc(), t);
+    let root_name = index
+        .resolved_name(root_id)
+        .should_some()
+        .sum(@loc(), t);
     let root_uri = root_name.uri.should_some().sum(@loc(), t);
-    root_uri.raw.should().eq("urn:root").sum(@loc(), t);
-    root_name.local.should().eq("root").sum(@loc(), t);
+    root_uri.raw
+        .should()
+        .eq("urn:root")
+        .sum(@loc(), t);
+    root_name.local
+        .should()
+        .eq("root")
+        .sum(@loc(), t);
 
     let default_child = index
         .first_child_ns(root_id, "urn:root", "child")
         .should_some()
         .sum(@loc(), t);
-    let default_child_node = index.get(default_child).should_some().sum(@loc(), t);
-    default_child_node.element.name.eq("child").should().sum(@loc(), t);
+    let default_child_node = index
+        .get(default_child)
+        .should_some()
+        .sum(@loc(), t);
+    default_child_node.element.name
+        .eq("child")
+        .should()
+        .sum(@loc(), t);
 
     let prefixed_child = index
         .first_child_ns(root_id, "urn:x", "child")
         .should_some()
         .sum(@loc(), t);
-    let prefixed_child_node = index.get(prefixed_child).should_some().sum(@loc(), t);
-    prefixed_child_node.element.name.eq("x:child").should().sum(@loc(), t);
+    let prefixed_child_node = index
+        .get(prefixed_child)
+        .should_some()
+        .sum(@loc(), t);
+    prefixed_child_node.element.name
+        .eq("x:child")
+        .should()
+        .sum(@loc(), t);
 
-    let scope_id = index.first_child_named(root_id, "scope").should_some().sum(@loc(), t);
+    let scope_id = index
+        .first_child_named(root_id, "scope")
+        .should_some()
+        .sum(@loc(), t);
     let inner_child = index
         .first_child_ns(scope_id, "urn:inner", "child")
         .should_some()
         .sum(@loc(), t);
-    let inner_name = index.resolved_name(inner_child).should_some().sum(@loc(), t);
+    let inner_name = index
+        .resolved_name(inner_child)
+        .should_some()
+        .sum(@loc(), t);
     let inner_uri = inner_name.uri.should_some().sum(@loc(), t);
-    inner_uri.raw.should().eq("urn:inner").sum(@loc(), t);
+    inner_uri.raw
+        .should()
+        .eq("urn:inner")
+        .sum(@loc(), t);
 }
 
 fn check_borrowed_index() void {
@@ -539,30 +905,86 @@ fn check_borrowed_index() void {
         .sum(@loc(), t)..&;
     defer index.deinit(gpa);
 
-    index.len().should().eq(5).sum(@loc(), t);
-    let root_id = index.root().should_some().sum(@loc(), t);
-    let root = index.get(root_id).should_some().sum(@loc(), t);
-    root.element.name.eq("root").should().sum(@loc(), t);
-    root.depth.should().eq(0).sum(@loc(), t);
+    index
+        .len()
+        .should()
+        .eq(5)
+        .sum(@loc(), t);
+    let root_id = index
+        .root()
+        .should_some()
+        .sum(@loc(), t);
+    let root = index
+        .get(root_id)
+        .should_some()
+        .sum(@loc(), t);
+    root.element.name
+        .eq("root")
+        .should()
+        .sum(@loc(), t);
+    root.depth
+        .should()
+        .eq(0)
+        .sum(@loc(), t);
 
-    let first_item_id = index.first_child_named(root_id, "item").should_some().sum(@loc(), t);
-    let first_item = index.get(first_item_id).should_some().sum(@loc(), t);
-    first_item.parent.should_some().sum(@loc(), t).should().eq(root_id).sum(@loc(), t);
-    first_item.element.name.eq("item").should().sum(@loc(), t);
+    let first_item_id = index
+        .first_child_named(root_id, "item")
+        .should_some()
+        .sum(@loc(), t);
+    let first_item = index
+        .get(first_item_id)
+        .should_some()
+        .sum(@loc(), t);
+    first_item.parent
+        .should_some()
+        .sum(@loc(), t)
+        .should()
+        .eq(root_id)
+        .sum(@loc(), t);
+    first_item.element.name
+        .eq("item")
+        .should()
+        .sum(@loc(), t);
 
-    let leaf_id = index.first_child_named(first_item_id, "leaf").should_some().sum(@loc(), t);
-    let leaf = index.get(leaf_id).should_some().sum(@loc(), t);
-    leaf.depth.should().eq(2).sum(@loc(), t);
+    let leaf_id = index
+        .first_child_named(first_item_id, "leaf")
+        .should_some()
+        .sum(@loc(), t);
+    let leaf = index
+        .get(leaf_id)
+        .should_some()
+        .sum(@loc(), t);
+    leaf.depth
+        .should()
+        .eq(2)
+        .sum(@loc(), t);
 
     let second_item_id = index
         .next_sibling_named(first_item_id, "item")
         .should_some()
         .sum(@loc(), t);
-    let second_item = index.get(second_item_id).should_some().sum(@loc(), t);
-    second_item.element.name.eq("item").should().sum(@loc(), t);
-    index.next_sibling_named(second_item_id, "item").should_none().sum(@loc(), t);
-    index.count_descendants_named(root_id, "item").should().eq(2).sum(@loc(), t);
-    index.count_descendants_named(root_id, "leaf").should().eq(1).sum(@loc(), t);
+    let second_item = index
+        .get(second_item_id)
+        .should_some()
+        .sum(@loc(), t);
+    second_item.element.name
+        .eq("item")
+        .should()
+        .sum(@loc(), t);
+    index
+        .next_sibling_named(second_item_id, "item")
+        .should_none()
+        .sum(@loc(), t);
+    index
+        .count_descendants_named(root_id, "item")
+        .should()
+        .eq(2)
+        .sum(@loc(), t);
+    index
+        .count_descendants_named(root_id, "leaf")
+        .should()
+        .eq(1)
+        .sum(@loc(), t);
 }
 
 fn check_render_round_trip() void {
@@ -573,8 +995,14 @@ fn check_render_round_trip() void {
     let mut out = base.coll.string();
     defer out..&.deinit(gpa);
     let writer = out..&.writer(gpa)..&;
-    xml.render_document(source, writer).should_ok().sum(@loc(), t);
-    out.&.as_str().should().eq(source).sum(@loc(), t);
+    xml
+        .render_document(source, writer)
+        .should_ok()
+        .sum(@loc(), t);
+    out.&.as_str()
+        .should()
+        .eq(source)
+        .sum(@loc(), t);
 }
 
 fn check_owned_document_tree() void {
@@ -587,16 +1015,47 @@ fn check_owned_document_tree() void {
         .sum(@loc(), t)..&;
     defer doc.deinit(gpa);
 
-    doc.len().should().eq(4).sum(@loc(), t);
-    let root_id = doc.root().should_some().sum(@loc(), t);
-    let root = doc.get(root_id).should_some().sum(@loc(), t);
-    root.element.name.&.as_str().should().eq("root").sum(@loc(), t);
-    let item_id = doc.first_child_named(root_id, "item").should_some().sum(@loc(), t);
-    let item = doc.get(item_id).should_some().sum(@loc(), t);
-    item.element.raw.&.as_str().should().eq("<item id=\"a\">").sum(@loc(), t);
-    let leaf_id = doc.first_child_named(item_id, "leaf").should_some().sum(@loc(), t);
-    let leaf = doc.get(leaf_id).should_some().sum(@loc(), t);
-    leaf.element.name.&.as_str().should().eq("leaf").sum(@loc(), t);
+    doc
+        .len()
+        .should()
+        .eq(4)
+        .sum(@loc(), t);
+    let root_id = doc
+        .root()
+        .should_some()
+        .sum(@loc(), t);
+    let root = doc
+        .get(root_id)
+        .should_some()
+        .sum(@loc(), t);
+    root.element.name.&.as_str()
+        .should()
+        .eq("root")
+        .sum(@loc(), t);
+    let item_id = doc
+        .first_child_named(root_id, "item")
+        .should_some()
+        .sum(@loc(), t);
+    let item = doc
+        .get(item_id)
+        .should_some()
+        .sum(@loc(), t);
+    item.element.raw.&.as_str()
+        .should()
+        .eq("<item id=\"a\">")
+        .sum(@loc(), t);
+    let leaf_id = doc
+        .first_child_named(item_id, "leaf")
+        .should_some()
+        .sum(@loc(), t);
+    let leaf = doc
+        .get(leaf_id)
+        .should_some()
+        .sum(@loc(), t);
+    leaf.element.name.&.as_str()
+        .should()
+        .eq("leaf")
+        .sum(@loc(), t);
 }
 
 fn check_eof_split_positions() void {
@@ -633,8 +1092,14 @@ fn check_eof_split_positions() void {
         },
     };
     let mut bad_attrs = bad.attributes();
-    let attr_err = bad_attrs..&.next().should_err().sum(@loc(), t);
-    attr_err.kind.should().eq(ErrorKind.InvalidAttribute).sum(@loc(), t);
+    let attr_err = bad_attrs
+        ..&.next()
+        .should_err()
+        .sum(@loc(), t);
+    attr_err.kind
+        .should()
+        .eq(ErrorKind.InvalidAttribute)
+        .sum(@loc(), t);
 }
 
 fn main() i32 {

@@ -91,7 +91,9 @@ fn is_xml_target_case_insensitive(text: &[u8], start: usize, stop: usize) bool {
     let a = text.[start];
     let b = text.[start + 1];
     let c = text.[start + 2];
-    return (a == b'x' or a == b'X') and (b == b'm' or b == b'M') and (c == b'l' or c == b'L');
+    return (a == b'x' or a == b'X')
+        and (b == b'm' or b == b'M')
+        and (c == b'l' or c == b'L');
 }
 
 fn is_empty_tag(raw_inside: &[u8]) bool {
