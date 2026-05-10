@@ -10,8 +10,12 @@
 //! without building a tree.
 //!
 //! ```kern
-//! let r = xml.reader("<root><leaf/></root>")..&;
-//! let event = r.next().!;
+//! fn read_first() void!xml.Error {
+//!     let r = xml.reader("<root><leaf/></root>")..&;
+//!     let .{ Some: event } = r.next().! else return .{ Ok: {} };
+//!     _ = event;
+//!     return .{ Ok: {} };
+//! }
 //! ```
 //!
 //! ## Structured Reading
@@ -20,8 +24,12 @@
 //! text when a caller wants a fixed document shape.
 //!
 //! ```kern
-//! let r = xml.reader("<config><name>kern</name></config>")..&;
-//! let root = r.expect_start("config").!;
+//! fn read_config() void!xml.ExpectError {
+//!     let r = xml.reader("<config><name>kern</name></config>")..&;
+//!     let root = r.expect_start("config").!;
+//!     _ = root;
+//!     return .{ Ok: {} };
+//! }
 //! ```
 //!
 //! ## Indexes And Ownership
@@ -29,9 +37,12 @@
 //! Source-level helpers keep whole-document work fluent:
 //!
 //! ```kern
-//! let source = "<root><item/></root>";
-//! source.validate(gpa).!;
-//! let index = source.build_index(gpa).!;
+//! fn load_index(gpa: &mut base.mem.alloc.Allocator) void!xml.IndexError {
+//!     let source = "<root><item/></root>";
+//!     let index = source.build_index(gpa).!..&;
+//!     defer index.deinit(gpa);
+//!     return .{ Ok: {} };
+//! }
 //! ```
 
 use base.io.{Formatable, Write};

@@ -28,11 +28,47 @@ the repository name is `xml-kern`.
 ## Usage
 
 ```kern
+use base.mem.alloc.{Allocator, gpa};
+use sys.mem.page;
 use xml.reader;
 
-let r = reader("<config><name>kern</name></config>")..&;
-r.expect_start("config").!;
-r.expect_start("name").!;
+enum AppError {
+    ReadConfig: xml.ExpectError,
+    LoadDocument: xml.IndexError,
+}
+
+fn read_config() void!xml.ExpectError {
+    let r = reader("<config><name>kern</name></config>")..&;
+    _ = r.expect_start("config").!;
+    _ = r.expect_start("name").!;
+    return .{ Ok: {} };
+}
+
+fn load_document(gpa: &mut Allocator) void!xml.IndexError {
+    let source = "<root><item/></root>";
+    let index = source.build_index(gpa).!..&;
+    defer index.deinit(gpa);
+    return .{ Ok: {} };
+}
+
+fn app(gpa: &mut Allocator) void!AppError {
+    read_config()
+        .map_err([](err: xml.ExpectError) AppError { return .{ ReadConfig: err }; })
+        .!;
+    load_document(gpa)
+        .map_err([](err: xml.IndexError) AppError { return .{ LoadDocument: err }; })
+        .!;
+    return .{ Ok: {} };
+}
+
+fn main() i32 {
+    let page = page()..&;
+    let gpa = gpa().on(page)..&;
+    defer gpa.deinit();
+
+    let .{ Ok: _ } = app(gpa) else return 1;
+    return 0;
+}
 ```
 
 Useful entry points:
