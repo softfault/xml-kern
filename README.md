@@ -3,9 +3,9 @@
 XML parsing, validation, indexing, and rendering utilities for Kern.
 
 The package exposes an allocation-free pull reader over borrowed source text,
-plus optional higher-level helpers for validation, namespace-aware lookup,
-owned document cloning, and event-stream rendering. The package name is `xml`,
-so Kern code imports it directly with `use xml...`.
+plus higher-level helpers for validation, namespace-aware lookup, owned
+document cloning, and event-stream rendering. The Craft package name is `xml`;
+the repository name is `xml-kern`.
 
 ## Features
 
@@ -28,25 +28,26 @@ so Kern code imports it directly with `use xml...`.
 ## Usage
 
 ```kern
-use xml;
+use xml.reader;
 
-let mut reader = xml.reader("<root><leaf name=\"kern\"/></root>");
-let event = reader.next();
+let mut r = reader("<config><name>kern</name></config>");
+r..&.expect_start("config").!;
+r..&.expect_start("name").!;
 ```
 
 Useful entry points:
 
 - `xml.reader(source)` creates a `Reader`.
-- `reader.next()` yields borrowed `Event` values.
-- `reader.next_significant()` skips whitespace text, comments, and processing
+- `r..&.next()` yields borrowed `Event` values.
+- `r..&.next_significant()` skips whitespace text, comments, and processing
   instructions.
-- `reader.expect_start()`, `expect_empty()`, and `expect_end()` provide small
-  parser-combinator style building blocks.
-- `reader.filter_significant()`, `elements()`, and `names()` provide streaming
+- `r..&.expect_start(name)`, `expect_empty(name)`, and `expect_end(name)`
+  provide small parser-combinator style building blocks.
+- `r..&.filter_significant()`, `elements()`, and `names()` provide streaming
   adapters.
 - `xml.drain_events(stream, sink)` drives trait-backed event sinks.
 - `element.attributes()` creates an `AttributeCursor`.
-- `xml.validate(source, alloc)` and `reader.validate(alloc)` validate
+- `xml.validate(source, alloc)` and `r..&.validate(alloc)` validate
   well-formedness.
 - `xml.build_index(source, alloc)` builds a borrowed document index.
 - `xml.clone_owned_document(source, alloc)` builds an owned element tree.
