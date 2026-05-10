@@ -83,36 +83,38 @@ fn write_text_body(
     return .{ Ok: {} };
 }
 
-/// Writes one XML event to `writer` without normalizing or escaping payloads.
-pub fn render_event(writer: &mut Write, event: Event, offset: usize) void!RenderError {
-    match (event) {
-        .{ Declaration: pi } => write_pi(writer, "<?", pi, offset).!,
-        .{ ProcessingInstruction: pi } => write_pi(writer, "<?", pi, offset).!,
-        .{ Start: element } => write_element_open(writer, "<", element, ">", offset).!,
-        .{ Empty: element } => write_element_open(writer, "<", element, "/>", offset).!,
-        .{ End: name } => {
-            write_all(writer, "</", offset).!;
-            write_all(writer, name.raw, offset).!;
-            write_all(writer, ">", offset).!;
-        },
-        .{ Text: text } => write_text_body(writer, text, offset).!,
-        .{ Comment: text } => {
-            write_all(writer, "<!--", offset).!;
-            write_text_body(writer, text, offset).!;
-            write_all(writer, "-->", offset).!;
-        },
-        .{ CData: text } => {
-            write_all(writer, "<![CDATA[", offset).!;
-            write_text_body(writer, text, offset).!;
-            write_all(writer, "]]>", offset).!;
-        },
-        .{ Doctype: text } => {
-            write_all(writer, "<!DOCTYPE", offset).!;
-            write_text_body(writer, text, offset).!;
-            write_all(writer, ">", offset).!;
-        },
+impl Event {
+    /// Writes this XML event to `writer` without normalizing or escaping payloads.
+    pub fn render_to(writer: &mut Write, offset: usize) void!RenderError {
+        match (self) {
+            .{ Declaration: pi } => write_pi(writer, "<?", pi, offset).!,
+            .{ ProcessingInstruction: pi } => write_pi(writer, "<?", pi, offset).!,
+            .{ Start: element } => write_element_open(writer, "<", element, ">", offset).!,
+            .{ Empty: element } => write_element_open(writer, "<", element, "/>", offset).!,
+            .{ End: name } => {
+                write_all(writer, "</", offset).!;
+                write_all(writer, name.raw, offset).!;
+                write_all(writer, ">", offset).!;
+            },
+            .{ Text: text } => write_text_body(writer, text, offset).!,
+            .{ Comment: text } => {
+                write_all(writer, "<!--", offset).!;
+                write_text_body(writer, text, offset).!;
+                write_all(writer, "-->", offset).!;
+            },
+            .{ CData: text } => {
+                write_all(writer, "<![CDATA[", offset).!;
+                write_text_body(writer, text, offset).!;
+                write_all(writer, "]]>", offset).!;
+            },
+            .{ Doctype: text } => {
+                write_all(writer, "<!DOCTYPE", offset).!;
+                write_text_body(writer, text, offset).!;
+                write_all(writer, ">", offset).!;
+            },
+        }
+        return .{ Ok: {} };
     }
-    return .{ Ok: {} };
 }
 
 impl &mut Reader {
@@ -122,14 +124,16 @@ impl &mut Reader {
             let offset = self.offset();
             let next = self.next().map_err(lift_parse).!;
             let .{ Some: event } = next else break;
-            render_event(writer, event, offset).!;
+            event.render_to(writer, offset).!;
         }
         return .{ Ok: {} };
     }
 }
 
-/// Renders a complete source document by replaying parsed events.
-pub fn render_document(source: &[u8], writer: &mut Write) void!RenderError {
-    let mut r = reader(source);
-    return r..&.render_to(writer);
+impl &[u8] {
+    /// Renders this complete source document by replaying parsed events.
+    pub fn render_to(writer: &mut Write) void!RenderError {
+        let mut r = reader(self);
+        return r..&.render_to(writer);
+    }
 }

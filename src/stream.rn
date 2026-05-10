@@ -142,16 +142,18 @@ impl &mut SinkStats : EventSink {
     }
 }
 
-/// Drains events from `stream` into `sink` and returns the accepted count.
-pub fn drain_events(stream: &mut EventStream, sink: &mut EventSink) usize!Error {
-    let mut count = 0;
-    while (true) {
-        let next = stream.next_event().!;
-        let .{ Some: event } = next else return .{ Ok: count };
-        if (!sink.on_event(event).!) {
-            return .{ Ok: count };
+impl &mut EventStream {
+    /// Drains this stream into `sink` and returns the accepted count.
+    pub fn drain_into(sink: &mut EventSink) usize!Error {
+        let mut count = 0;
+        while (true) {
+            let next = self.next_event().!;
+            let .{ Some: event } = next else return .{ Ok: count };
+            if (!sink.on_event(event).!) {
+                return .{ Ok: count };
+            }
+            count += 1;
         }
-        count += 1;
+        return .{ Ok: count };
     }
-    return .{ Ok: count };
 }

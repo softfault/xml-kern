@@ -14,6 +14,7 @@ use ..{
     Reader,
     ValidateError,
     ValidateErrorKind,
+    reader,
 };
 
 // Builds a validation error at the source offset that caused it.
@@ -146,5 +147,13 @@ impl &mut Reader {
             return .{ Err: validate_err(.MissingRoot, self.index) };
         }
         return .{ Ok: {} };
+    }
+}
+
+impl &[u8] {
+    /// Validates this source as a well-formed single-root XML document.
+    pub fn validate(alloc: &mut Allocator) void!ValidateError {
+        let mut r = reader(self);
+        return r..&.validate(alloc);
     }
 }

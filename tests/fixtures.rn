@@ -151,8 +151,7 @@ fn check_large_fixture_validation() void {
     let t = test.report(io.stderr())..&;
     let page = page()..&;
     let gpa = gpa().on(page)..&;
-    xml
-        .validate(FIXTURE, gpa)
+    FIXTURE.validate(gpa)
         .should_ok()
         .sum(@loc(), t);
 }
@@ -165,8 +164,7 @@ fn check_large_fixture_round_trip() void {
     let mut out = base.coll.string();
     defer out..&.deinit(gpa);
     let writer = out..&.writer(gpa)..&;
-    xml
-        .render_document(FIXTURE, writer)
+    FIXTURE.render_to(writer)
         .should_ok()
         .sum(@loc(), t);
     out.&.as_str()

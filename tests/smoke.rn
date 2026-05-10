@@ -421,7 +421,7 @@ fn check_errors_have_offsets() void {
         .eq(0)
         .sum(@loc(), t);
 
-    let loc = xml.locate("a\nbc", 3);
+    let loc = "a\nbc".location(3);
     loc.line
         .should()
         .eq(2)
@@ -576,13 +576,11 @@ fn check_validation() void {
     let page = page()..&;
     let gpa = gpa().on(page)..&;
 
-    xml
-        .validate("<root><child/><child>text</child></root>", gpa)
+    "<root><child/><child>text</child></root>".validate(gpa)
         .should_ok()
         .sum(@loc(), t);
 
-    let mismatch = xml
-        .validate("<root><a></root>", gpa)
+    let mismatch = "<root><a></root>".validate(gpa)
         .should_err()
         .sum(@loc(), t);
     match (mismatch.kind) {
@@ -590,8 +588,7 @@ fn check_validation() void {
         _ => t.fail_at(@loc(), "expected mismatched end"),
     }
 
-    let multiple = xml
-        .validate("<a/><b/>", gpa)
+    let multiple = "<a/><b/>".validate(gpa)
         .should_err()
         .sum(@loc(), t);
     match (multiple.kind) {
@@ -599,8 +596,7 @@ fn check_validation() void {
         _ => t.fail_at(@loc(), "expected multiple roots"),
     }
 
-    let missing = xml
-        .validate("   <!-- only comment -->", gpa)
+    let missing = "   <!-- only comment -->".validate(gpa)
         .should_err()
         .sum(@loc(), t);
     match (missing.kind) {
@@ -608,8 +604,7 @@ fn check_validation() void {
         _ => t.fail_at(@loc(), "expected missing root"),
     }
 
-    let parse = xml
-        .validate("<root><!-- bad", gpa)
+    let parse = "<root><!-- bad".validate(gpa)
         .should_err()
         .sum(@loc(), t);
     match (parse.kind) {
@@ -617,8 +612,7 @@ fn check_validation() void {
         _ => t.fail_at(@loc(), "expected parse error"),
     }
 
-    let duplicate = xml
-        .validate("<root a=\"1\" a=\"2\"/>", gpa)
+    let duplicate = "<root a=\"1\" a=\"2\"/>".validate(gpa)
         .should_err()
         .sum(@loc(), t);
     match (duplicate.kind) {
@@ -626,8 +620,7 @@ fn check_validation() void {
         _ => t.fail_at(@loc(), "expected duplicate attribute"),
     }
 
-    let nested_duplicate = xml
-        .validate("<root><child id=\"1\" id=\"2\"/></root>", gpa)
+    let nested_duplicate = "<root><child id=\"1\" id=\"2\"/></root>".validate(gpa)
         .should_err()
         .sum(@loc(), t);
     match (nested_duplicate.kind) {
@@ -635,8 +628,7 @@ fn check_validation() void {
         _ => t.fail_at(@loc(), "expected nested duplicate attribute"),
     }
 
-    let many_attrs = xml
-        .validate(MANY_ATTRS_DUPLICATE_XML, gpa)
+    let many_attrs = MANY_ATTRS_DUPLICATE_XML.validate(gpa)
         .should_err()
         .sum(@loc(), t);
     match (many_attrs.kind) {
@@ -708,8 +700,7 @@ fn check_stream_combinators() void {
     let mut stats = xml.SinkStats.{};
     let stream = &mut xml.EventStream.{ counted_reader..& };
     let sink = &mut xml.EventSink.{ stats..& };
-    xml
-        .drain_events(stream, sink)
+    stream.drain_into(sink)
         .should_ok()
         .sum(@loc(), t)
         .should()
@@ -867,8 +858,7 @@ fn check_namespace_index_queries() void {
     let t = test.report(io.stderr())..&;
     let page = page()..&;
     let gpa = gpa().on(page)..&;
-    let index = xml
-        .build_index(NAMESPACE_INDEX_XML, gpa)
+    let index = NAMESPACE_INDEX_XML.build_index(gpa)
         .should_ok()
         .sum(@loc(), t)..&;
     defer index.deinit(gpa);
@@ -941,8 +931,7 @@ fn check_borrowed_index() void {
     let t = test.report(io.stderr())..&;
     let page = page()..&;
     let gpa = gpa().on(page)..&;
-    let index = xml
-        .build_index(BORROWED_INDEX_XML, gpa)
+    let index = BORROWED_INDEX_XML.build_index(gpa)
         .should_ok()
         .sum(@loc(), t)..&;
     defer index.deinit(gpa);
@@ -1038,8 +1027,7 @@ fn check_render_round_trip() void {
     let mut out = base.coll.string();
     defer out..&.deinit(gpa);
     let writer = out..&.writer(gpa)..&;
-    xml
-        .render_document(source, writer)
+    source.render_to(writer)
         .should_ok()
         .sum(@loc(), t);
     out.&.as_str()
@@ -1053,8 +1041,7 @@ fn check_owned_document_tree() void {
     let t = test.report(io.stderr())..&;
     let page = page()..&;
     let gpa = gpa().on(page)..&;
-    let doc = xml
-        .clone_owned_document(OWNED_DOCUMENT_XML, gpa)
+    let doc = OWNED_DOCUMENT_XML.clone_owned_document(gpa)
         .should_ok()
         .sum(@loc(), t)..&;
     defer doc.deinit(gpa);

@@ -26,9 +26,13 @@
 //!
 //! ## Indexes And Ownership
 //!
-//! `build_index` creates a borrowed element topology for repeated lookup, while
-//! `clone_owned_document` copies names and raw slices when the source buffer
-//! cannot outlive the parsed document.
+//! Source-level helpers keep whole-document work fluent:
+//!
+//! ```kern
+//! let source = "<root><item/></root>";
+//! source.validate(gpa).!;
+//! let index = source.build_index(gpa).!;
+//! ```
 
 use base.io.{Formatable, Write};
 use base.coll.List;
@@ -44,15 +48,6 @@ mod validate;
 mod index;
 mod writer;
 mod owned;
-
-/// Drains an XML event stream into a sink until EOF or the sink stops.
-pub use .stream.drain_events;
-/// Builds a borrowed document index over validated XML source.
-pub use .index.build_index;
-/// Renders a source document by replaying its parsed event stream.
-pub use .writer.render_document;
-/// Clones a validated XML document into owned storage.
-pub use .owned.clone_owned_document;
 
 /// Tokenizer-level XML parse error categories.
 pub enum ErrorKind {
@@ -337,26 +332,27 @@ pub fn reader(source: &[u8]) Reader {
     return .{ source };
 }
 
-/// Validates that `source` is a well-formed single-root XML document.
-pub fn validate(source: &[u8], alloc: &mut base.mem.alloc.Allocator) void!ValidateError {
-    let mut r = reader(source);
-    return r..&.validate(alloc);
-}
-
-/// Converts a byte offset into a one-based line and column location.
-pub fn locate(source: &[u8], offset: usize) Location {
-    let mut line = 1;
-    let mut column = 1;
-    let limit = if (offset < #source) offset else #source;
-    for (byte: source.&[0 .. limit].iter()) {
-        if (byte == b'\n') {
-            line += 1;
-            column = 1;
-        } else {
-            column += 1;
-        }
+impl &[u8] {
+    /// Creates an allocation-free pull reader over this XML source.
+    pub fn reader() Reader {
+        return reader(self);
     }
-    return .{ offset, line, column };
+
+    /// Converts a byte offset into a one-based line and column location.
+    pub fn location(offset: usize) Location {
+        let mut line = 1;
+        let mut column = 1;
+        let limit = if (offset < #self) offset else #self;
+        for (byte: self.&[0 .. limit].iter()) {
+            if (byte == b'\n') {
+                line += 1;
+                column = 1;
+            } else {
+                column += 1;
+            }
+        }
+        return .{ offset, line, column };
+    }
 }
 
 impl &ErrorKind : Formatable {

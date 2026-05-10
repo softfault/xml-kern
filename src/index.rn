@@ -236,14 +236,16 @@ impl &mut Reader {
     }
 }
 
-/// Builds a borrowed element index over `source`.
-///
-/// The source is validated first, then scanned again to record only element
-/// nodes. Text, comments, declarations, processing instructions, CDATA, and
-/// doctypes are not stored in the index. Node links are represented by list
-/// indices, so the returned index stays valid as long as the original source
-/// buffer outlives it.
-pub fn build_index(source: &[u8], alloc: &mut Allocator) DocumentIndex!IndexError {
-    let mut r = reader(source);
-    return r..&.build_index(alloc);
+impl &[u8] {
+    /// Builds a borrowed element index over this XML source.
+    ///
+    /// The source is validated first, then scanned again to record only element
+    /// nodes. Text, comments, declarations, processing instructions, CDATA, and
+    /// doctypes are not stored in the index. Node links are represented by list
+    /// indices, so the returned index stays valid as long as this source buffer
+    /// outlives it.
+    pub fn build_index(alloc: &mut Allocator) DocumentIndex!IndexError {
+        let mut r = reader(self);
+        return r..&.build_index(alloc);
+    }
 }

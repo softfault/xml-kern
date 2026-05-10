@@ -45,11 +45,12 @@ Useful entry points:
   small parser-combinator style building blocks.
 - `r.filter_significant()`, `elements()`, and `names()` provide streaming
   adapters.
-- `xml.drain_events(stream, sink)` drives trait-backed event sinks.
+- `stream.drain_into(sink)` drives trait-backed event sinks.
 - `element.attributes()` creates an `AttributeCursor`.
-- `xml.validate(source, alloc)` and `r.validate(alloc)` validate well-formedness.
-- `xml.build_index(source, alloc)` builds a borrowed document index.
-- `xml.clone_owned_document(source, alloc)` builds an owned element tree.
+- `source.validate(alloc)` and `r.validate(alloc)` validate well-formedness.
+- `source.build_index(alloc)` builds a borrowed document index.
+- `source.clone_owned_document(alloc)` builds an owned element tree.
+- `source.render_to(writer)` replays a document without normalizing it.
 
 Namespace helpers are available through borrowed lexical views such as
 `name.qualified()`, `element.qualified_name()`, and

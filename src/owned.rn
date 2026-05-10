@@ -17,7 +17,6 @@ use ..{
     OwnedErrorKind,
     OwnedNode,
     ValidateErrorKind,
-    build_index,
 };
 
 // Builds an owned-document error at the source offset that caused it.
@@ -150,21 +149,32 @@ impl &OwnedDocument {
     }
 }
 
-/// Builds an owned document tree by validating, indexing, then copying nodes.
-pub fn clone_owned_document(source: &[u8], alloc: &mut Allocator) OwnedDocument!OwnedError {
-    let mut index = build_index(source, alloc).map_err(lift_index).!;
-    defer index..&.deinit(alloc);
-
-    let mut out = OwnedDocument.{};
-    out.root_index = index.&.root();
-    let mut i = usize.{0};
-    while (i < index.&.len()) {
-        let .{ Some: node } = index.&.get(i) else {
-            out..&.deinit(alloc);
-            return .{ Err: owned_err(.OutOfMemory, 0) };
-        };
-        push_owned_node(out..&, alloc, node).!;
-        i += 1;
+impl &DocumentIndex {
+    /// Clones this borrowed index into an owned document tree.
+    ///
+    /// The caller must keep the original XML source alive while this runs,
+    /// because indexed element slices are copied from the borrowed nodes.
+    pub fn clone_owned(alloc: &mut Allocator) OwnedDocument!OwnedError {
+        let mut out = OwnedDocument.{};
+        out.root_index = self.root();
+        let mut i = usize.{0};
+        while (i < self.len()) {
+            let .{ Some: node } = self.get(i) else {
+                out..&.deinit(alloc);
+                return .{ Err: owned_err(.OutOfMemory, 0) };
+            };
+            push_owned_node(out..&, alloc, node).!;
+            i += 1;
+        }
+        return .{ Ok: out };
     }
-    return .{ Ok: out };
+}
+
+impl &[u8] {
+    /// Builds an owned document tree by validating, indexing, then copying nodes.
+    pub fn clone_owned_document(alloc: &mut Allocator) OwnedDocument!OwnedError {
+        let mut index = self.build_index(alloc).map_err(lift_index).!;
+        defer index..&.deinit(alloc);
+        return index.&.clone_owned(alloc);
+    }
 }
