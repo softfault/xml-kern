@@ -30,25 +30,24 @@ the repository name is `xml-kern`.
 ```kern
 use xml.reader;
 
-let mut r = reader("<config><name>kern</name></config>");
-r..&.expect_start("config").!;
-r..&.expect_start("name").!;
+let r = reader("<config><name>kern</name></config>")..&;
+r.expect_start("config").!;
+r.expect_start("name").!;
 ```
 
 Useful entry points:
 
 - `xml.reader(source)` creates a `Reader`.
-- `r..&.next()` yields borrowed `Event` values.
-- `r..&.next_significant()` skips whitespace text, comments, and processing
+- `r.next()` yields borrowed `Event` values.
+- `r.next_significant()` skips whitespace text, comments, and processing
   instructions.
-- `r..&.expect_start(name)`, `expect_empty(name)`, and `expect_end(name)`
-  provide small parser-combinator style building blocks.
-- `r..&.filter_significant()`, `elements()`, and `names()` provide streaming
+- `r.expect_start(name)`, `expect_empty(name)`, and `expect_end(name)` provide
+  small parser-combinator style building blocks.
+- `r.filter_significant()`, `elements()`, and `names()` provide streaming
   adapters.
 - `xml.drain_events(stream, sink)` drives trait-backed event sinks.
 - `element.attributes()` creates an `AttributeCursor`.
-- `xml.validate(source, alloc)` and `r..&.validate(alloc)` validate
-  well-formedness.
+- `xml.validate(source, alloc)` and `r.validate(alloc)` validate well-formedness.
 - `xml.build_index(source, alloc)` builds a borrowed document index.
 - `xml.clone_owned_document(source, alloc)` builds an owned element tree.
 
