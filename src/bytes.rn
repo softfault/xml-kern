@@ -30,7 +30,11 @@ pub/ fn skip_ws(text: &[u8], index: usize) usize {
 }
 
 /// Returns `true` when `needle` occurs at `index`.
-pub/ fn starts_with_at(text: &[u8], index: usize, needle: &[u8]) bool {
+pub/ fn starts_with_at(
+    text: &[u8],
+    index: usize,
+    needle: &[u8],
+) bool {
     if (index > #text or #text - index < #needle) {
         return false;
     }
@@ -45,7 +49,11 @@ pub/ fn starts_with_at(text: &[u8], index: usize, needle: &[u8]) bool {
 }
 
 /// Finds one byte starting at `start`.
-pub/ fn find_byte(text: &[u8], needle: u8, start: usize) ?usize {
+pub/ fn find_byte(
+    text: &[u8],
+    needle: u8,
+    start: usize,
+) ?usize {
     let mut i = start;
     while (i < #text) {
         if (text.[i] == needle) {
@@ -57,7 +65,11 @@ pub/ fn find_byte(text: &[u8], needle: u8, start: usize) ?usize {
 }
 
 /// Finds `needle` starting at `start`.
-pub/ fn find(text: &[u8], needle: &[u8], start: usize) ?usize {
+pub/ fn find(
+    text: &[u8],
+    needle: &[u8],
+    start: usize,
+) ?usize {
     if (#needle == 0) {
         return .{ Some: start };
     }
@@ -229,7 +241,12 @@ pub/ fn name_end(text: &[u8], start: usize) usize!Error {
 }
 
 /// Compares a source name slice with an expected byte string.
-pub/ fn name_eq(text: &[u8], start: usize, stop: usize, expected: &[u8]) bool {
+pub/ fn name_eq(
+    text: &[u8],
+    start: usize,
+    stop: usize,
+    expected: &[u8],
+) bool {
     if (stop < start or stop - start != #expected) {
         return false;
     }

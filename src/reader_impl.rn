@@ -84,7 +84,11 @@ fn find_doctype_end(text: &[u8], start: usize) usize!Error {
     return .{ Err: err(.UnterminatedDoctype, start) };
 }
 
-fn is_xml_target_case_insensitive(text: &[u8], start: usize, stop: usize) bool {
+fn is_xml_target_case_insensitive(
+    text: &[u8],
+    start: usize,
+    stop: usize,
+) bool {
     if (stop < start or stop - start != 3) {
         return false;
     }
@@ -101,7 +105,11 @@ fn is_empty_tag(raw_inside: &[u8]) bool {
     return #trimmed > 0 and trimmed.[#trimmed - 1] == b'/';
 }
 
-fn validate_comment_body(text: &[u8], body_start: usize, body_end: usize) void!Error {
+fn validate_comment_body(
+    text: &[u8],
+    body_start: usize,
+    body_end: usize,
+) void!Error {
     let mut index = body_start;
     while (index + 1 < body_end) {
         if (text.[index] == b'-' and text.[index + 1] == b'-') {
@@ -112,7 +120,11 @@ fn validate_comment_body(text: &[u8], body_start: usize, body_end: usize) void!E
     return .{ Ok: {} };
 }
 
-fn validate_text_body(text: &[u8], start: usize, end: usize) void!Error {
+fn validate_text_body(
+    text: &[u8],
+    start: usize,
+    end: usize,
+) void!Error {
     let mut index = start;
     while (index + 2 < end) {
         if (text.[index] == b']' and text.[index + 1] == b']' and text.[index + 2] == b'>') {
@@ -123,7 +135,11 @@ fn validate_text_body(text: &[u8], start: usize, end: usize) void!Error {
     return .{ Ok: {} };
 }
 
-fn element_from_raw(text: &[u8], tag_start: usize, tag_end: usize) Element!Error {
+fn element_from_raw(
+    text: &[u8],
+    tag_start: usize,
+    tag_end: usize,
+) Element!Error {
     let name_start = tag_start + 1;
     let name_stop = name_end(text, name_start).!;
     let attr_start = name_stop;

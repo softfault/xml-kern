@@ -20,7 +20,11 @@ fn lift_parse(err: Error) RenderError {
     return .{ kind: .{ Parse: err.kind }, offset: err.offset };
 }
 
-fn write_all(writer: &mut Write, text: &[u8], offset: usize) void!RenderError {
+fn write_all(
+    writer: &mut Write,
+    text: &[u8],
+    offset: usize,
+) void!RenderError {
     if (!writer.write_all(text)) {
         return .{ Err: render_err(.WriteFailed, offset) };
     }
@@ -59,7 +63,11 @@ fn write_element_open(
     return .{ Ok: {} };
 }
 
-fn write_text_body(writer: &mut Write, text: Text, offset: usize) void!RenderError {
+fn write_text_body(
+    writer: &mut Write,
+    text: Text,
+    offset: usize,
+) void!RenderError {
     write_all(writer, text.raw, offset).!;
     return .{ Ok: {} };
 }

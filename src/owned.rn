@@ -27,7 +27,11 @@ fn lift_index(err: ..IndexError) OwnedError {
     }
 }
 
-fn clone_text(alloc: &mut Allocator, text: &[u8], offset: usize) String!OwnedError {
+fn clone_text(
+    alloc: &mut Allocator,
+    text: &[u8],
+    offset: usize,
+) String!OwnedError {
     let mut out = string();
     if (!out..&.clone_from_exact(alloc, text)) {
         return .{ Err: owned_err(.OutOfMemory, offset) };

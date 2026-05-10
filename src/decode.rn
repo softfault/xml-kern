@@ -34,7 +34,11 @@ fn utf8_len(codepoint: u32) usize!DecodeError {
     return .{ Ok: 4 };
 }
 
-fn write_utf8_at(codepoint: u32, out: &mut [u8], index: usize) usize!DecodeError {
+fn write_utf8_at(
+    codepoint: u32,
+    out: &mut [u8],
+    index: usize,
+) usize!DecodeError {
     let len = utf8_len(codepoint).!;
     if (#out - index < len) {
         return .{ Err: decode_err(.BufferTooSmall, index) };

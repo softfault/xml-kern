@@ -122,7 +122,11 @@ fn expect_no_name(names: &mut xml.MappedReader[xml.Name]) void {
         .sum(@loc(), t);
 }
 
-fn expect_prefix_errors(source: &[u8], min_len: usize, complete_events: usize) void {
+fn expect_prefix_errors(
+    source: &[u8],
+    min_len: usize,
+    complete_events: usize,
+) void {
     let t = test.report(io.stderr())..&;
     for (split: range[usize](min_len, #source)) {
         let mut r = reader(source.&[0 .. split]);

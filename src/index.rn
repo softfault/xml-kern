@@ -192,13 +192,27 @@ impl &mut Reader {
                     if (out.root_index.is_none() and stack.is_empty()) {
                         out.root_index = .{ Some: out.nodes.len() };
                     }
-                    push_node(out.nodes..&, stack, alloc, element, offset, false).!;
+                    push_node(
+                        out.nodes..&,
+                        stack,
+                        alloc,
+                        element,
+                        offset,
+                        false,
+                    ).!;
                 },
                 .{ Empty: element } => {
                     if (out.root_index.is_none() and stack.is_empty()) {
                         out.root_index = .{ Some: out.nodes.len() };
                     }
-                    push_node(out.nodes..&, stack, alloc, element, offset, true).!;
+                    push_node(
+                        out.nodes..&,
+                        stack,
+                        alloc,
+                        element,
+                        offset,
+                        true,
+                    ).!;
                 },
                 .{ End: _ } => {
                     let .{ Some: _ } = stack.pop() else {
