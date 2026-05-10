@@ -1,3 +1,8 @@
+//! Event stream traits and reader adapters.
+//!
+//! The adapters compose filtering and mapping over `Reader` without allocating
+//! intermediate event buffers.
+
 use ..{
     Element,
     Error,
@@ -78,6 +83,7 @@ impl[T] &mut MappedReader[T] {
     }
 }
 
+// Whitespace-only text is ignorable in significant-event streams.
 fn is_ws_text(raw: &[u8]) bool {
     for (byte: raw.iter()) {
         if (!(byte == b' ' or byte == b'\n' or byte == b'\r' or byte == b'\t')) {
@@ -87,6 +93,7 @@ fn is_ws_text(raw: &[u8]) bool {
     return true;
 }
 
+// Significant streams drop ignorable formatting and metadata events.
 fn is_significant_event(event: Event) bool {
     match (event) {
         .{ Text: text } => return !is_ws_text(text.raw),
@@ -96,6 +103,7 @@ fn is_significant_event(event: Event) bool {
     }
 }
 
+// Mapping helper used by `Reader.elements()`.
 fn event_element(event: Event) ?Element {
     match (event) {
         .{ Start: element } => return .{ Some: element },
@@ -104,6 +112,7 @@ fn event_element(event: Event) ?Element {
     }
 }
 
+// Mapping helper used by `Reader.names()`.
 fn event_name(event: Event) ?Name {
     match (event) {
         .{ Start: element } => return .{ Some: element.name },
@@ -113,6 +122,7 @@ fn event_name(event: Event) ?Name {
     }
 }
 
+// Shared sink accounting for the `SinkStats` event-sink implementation.
 fn count_event(stats: &mut SinkStats, event: Event) void {
     stats.events += 1;
     match (event) {

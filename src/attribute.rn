@@ -1,3 +1,8 @@
+//! Borrowed attribute cursor over a start or empty element's raw attribute slice.
+//!
+//! Attribute values stay encoded and borrowed. Decoding is handled separately by
+//! `EncodedText`, which keeps attribute scanning allocation-free.
+
 use ..{
     Attribute,
     AttributeCursor,
@@ -34,6 +39,8 @@ impl &mut AttributeCursor {
             return .{ Ok: .None };
         }
 
+        // Attribute names are parsed with the same XML Name rules as element
+        // names, so namespace prefixes and non-ASCII names share one path.
         let name_start = index;
         let name_stop = name_end(text, name_start).map_err([](parse_err: Error) Error {
             return .{ kind: parse_err.kind, offset: parse_err.offset };

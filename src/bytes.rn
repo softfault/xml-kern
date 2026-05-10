@@ -39,6 +39,8 @@ pub/ fn starts_with_at(
         return false;
     }
     let mut i = 0;
+    // Keep an index loop so the comparison can read both slices without
+    // building an iterator pair in this tokenizer hot path.
     while (i < #needle) {
         if (text.[index + i] != needle.[i]) {
             return false;
@@ -55,6 +57,7 @@ pub/ fn find_byte(
     start: usize,
 ) ?usize {
     let mut i = start;
+    // Index scanning returns the exact source byte offset of the first match.
     while (i < #text) {
         if (text.[i] == needle) {
             return .{ Some: i };
@@ -119,6 +122,7 @@ pub/ struct Utf8Char {
     len: usize,
 };
 
+// UTF-8 continuation bytes all have the `10xxxxxx` high-bit pattern.
 fn is_continuation(byte: u8) bool {
     return (byte & 0xC0) == 0x80;
 }
@@ -186,6 +190,7 @@ fn read_utf8(text: &[u8], start: usize) Utf8Char!Error {
     return .{ Err: err(.InvalidName, start) };
 }
 
+// Checks the XML NameStartChar scalar set after UTF-8 decoding.
 fn is_xml_name_start_scalar(codepoint: u32) bool {
     // XML 1.0 NameStartChar ranges. ASCII punctuation and letters are listed
     // first so common names avoid the longer Unicode range checks.
@@ -207,6 +212,7 @@ fn is_xml_name_start_scalar(codepoint: u32) bool {
         or (codepoint >= 0x10000 and codepoint <= 0xEFFFF);
 }
 
+// Checks the full XML NameChar scalar set after the first character.
 fn is_xml_name_continue_scalar(codepoint: u32) bool {
     // XML NameChar extends NameStartChar with digits, separators, and combining
     // marks used by many scripts.
@@ -230,6 +236,7 @@ pub/ fn name_end(text: &[u8], start: usize) usize!Error {
     }
 
     let mut i = start + first.len;
+    // Name scanning advances by UTF-8 scalar width, not by individual bytes.
     while (i < #text) {
         let ch = read_utf8(text, i).!;
         if (!is_xml_name_continue_scalar(ch.codepoint)) {
@@ -251,6 +258,7 @@ pub/ fn name_eq(
         return false;
     }
     let mut i = 0;
+    // Compare by byte offset because XML names are already validated slices.
     while (i < #expected) {
         if (text.[start + i] != expected.[i]) {
             return false;

@@ -1,3 +1,8 @@
+//! Structured reader combinators for documents with an expected shape.
+//!
+//! These helpers skip ignorable events and report mismatches as `ExpectError`
+//! while preserving tokenizer offsets from the underlying reader.
+
 use ..{
     Element,
     Error,
@@ -8,14 +13,17 @@ use ..{
     Reader,
 };
 
+// Builds an expectation error at the reader offset before consuming input.
 fn expect_err(kind: ExpectErrorKind, offset: usize) ExpectError {
     return .{ kind, offset };
 }
 
+// Preserves parse failure offsets while changing the error domain.
 fn lift_parse(err: Error) ExpectError {
     return .{ kind: .{ Parse: err.kind }, offset: err.offset };
 }
 
+// Significant-event readers ignore whitespace text, comments, and PI metadata.
 fn is_ignorable(event: Event) bool {
     match (event) {
         .{ Text: text } => {

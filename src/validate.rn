@@ -1,3 +1,8 @@
+//! Well-formedness validation on top of the pull reader.
+//!
+//! Validation enforces single-root structure, matching start/end names, XML
+//! declaration placement, and duplicate attributes.
+
 use base.coll.{list, map};
 use base.mem.alloc.Allocator;
 
@@ -11,14 +16,17 @@ use ..{
     ValidateErrorKind,
 };
 
+// Builds a validation error at the source offset that caused it.
 fn validate_err(kind: ValidateErrorKind, offset: usize) ValidateError {
     return .{ kind, offset };
 }
 
+// Preserves tokenizer offsets while moving parse failures into validation.
 fn lift_parse(err: Error) ValidateError {
     return .{ kind: .{ Parse: err.kind }, offset: err.offset };
 }
 
+// Text outside the root may only contain XML whitespace.
 fn is_ignorable_text(raw: &[u8]) bool {
     for (byte: raw.iter()) {
         if (!(byte == b' ' or byte == b'\n' or byte == b'\r' or byte == b'\t')) {
@@ -28,6 +36,7 @@ fn is_ignorable_text(raw: &[u8]) bool {
     return true;
 }
 
+// Tracks attribute names for one element to detect duplicates.
 fn has_duplicate_attributes(
     element: Element,
     alloc: &mut Allocator,

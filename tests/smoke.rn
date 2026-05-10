@@ -1,3 +1,8 @@
+//! Broad XML package smoke tests.
+//!
+//! These tests cover tokenization, validation, decoding, namespace views,
+//! indexing, ownership, rendering, and EOF error boundaries.
+
 use base.mem.alloc.gpa;
 use base.coll.range;
 use base.test;
@@ -52,6 +57,7 @@ const FULL_DECL_XML =
     \\<?xml version="1.0" encoding="utf-8" standalone="yes"?><root/>
 ;
 
+// Pulls one required event from a reader and fails the current test otherwise.
 fn expect_next(r: &mut xml.Reader) Event {
     let t = test.report(io.stderr())..&;
     return r
@@ -62,6 +68,7 @@ fn expect_next(r: &mut xml.Reader) Event {
         .sum(@loc(), t);
 }
 
+// Pulls one required attribute from a cursor.
 fn expect_attr(attrs: &mut xml.AttributeCursor) xml.Attribute {
     let t = test.report(io.stderr())..&;
     return attrs
@@ -72,6 +79,7 @@ fn expect_attr(attrs: &mut xml.AttributeCursor) xml.Attribute {
         .sum(@loc(), t);
 }
 
+// Asserts that an attribute cursor is exhausted.
 fn expect_no_attr(attrs: &mut xml.AttributeCursor) void {
     let t = test.report(io.stderr())..&;
     attrs
@@ -82,6 +90,7 @@ fn expect_no_attr(attrs: &mut xml.AttributeCursor) void {
         .sum(@loc(), t);
 }
 
+// Pulls one required mapped element from an element adapter.
 fn expect_element(elements: &mut xml.MappedReader[xml.Element]) xml.Element {
     let t = test.report(io.stderr())..&;
     return elements
@@ -92,6 +101,7 @@ fn expect_element(elements: &mut xml.MappedReader[xml.Element]) xml.Element {
         .sum(@loc(), t);
 }
 
+// Asserts that an element adapter is exhausted.
 fn expect_no_element(elements: &mut xml.MappedReader[xml.Element]) void {
     let t = test.report(io.stderr())..&;
     elements
@@ -102,6 +112,7 @@ fn expect_no_element(elements: &mut xml.MappedReader[xml.Element]) void {
         .sum(@loc(), t);
 }
 
+// Pulls one required mapped name from a name adapter.
 fn expect_name(names: &mut xml.MappedReader[xml.Name]) xml.Name {
     let t = test.report(io.stderr())..&;
     return names
@@ -112,6 +123,7 @@ fn expect_name(names: &mut xml.MappedReader[xml.Name]) xml.Name {
         .sum(@loc(), t);
 }
 
+// Asserts that a name adapter is exhausted.
 fn expect_no_name(names: &mut xml.MappedReader[xml.Name]) void {
     let t = test.report(io.stderr())..&;
     names
@@ -122,6 +134,7 @@ fn expect_no_name(names: &mut xml.MappedReader[xml.Name]) void {
         .sum(@loc(), t);
 }
 
+// Checks that incomplete prefixes fail while the full source still parses.
 fn expect_prefix_errors(
     source: &[u8],
     min_len: usize,
@@ -147,6 +160,7 @@ fn expect_prefix_errors(
     }
 }
 
+// Covers the complete event mix produced by the baseline sample document.
 fn check_basic_events() void {
     let t = test.report(io.stderr())..&;
     let mut r = reader(BASIC_EVENTS_XML);
@@ -287,6 +301,7 @@ fn check_basic_events() void {
         .sum(@loc(), t);
 }
 
+// Verifies predefined entities, numeric references, and owned decode cloning.
 fn check_decode_entities() void {
     let t = test.report(io.stderr())..&;
     let text = xml.EncodedText.{ raw: "a&amp;b&lt;c&gt;&apos;&quot;&#65;&#x1F600;" };
@@ -325,6 +340,7 @@ fn check_decode_entities() void {
         .sum(@loc(), t);
 }
 
+// Verifies BOM skipping and doctype internal-subset scanning.
 fn check_doctype_and_bom() void {
     let t = test.report(io.stderr())..&;
     let source = [60]u8.{
@@ -356,6 +372,7 @@ fn check_doctype_and_bom() void {
         .sum(@loc(), t);
 }
 
+// Verifies malformed input reports stable error categories and offsets.
 fn check_errors_have_offsets() void {
     let t = test.report(io.stderr())..&;
     let mut full_decl = reader(FULL_DECL_XML);
@@ -545,11 +562,15 @@ fn check_errors_have_offsets() void {
 
     let mut unicode_name = reader("<é/>");
     match (expect_next(unicode_name..&)) {
-        .{ Empty: element } => element.name.raw.should().eq("é").sum(@loc(), t),
+        .{ Empty: element } => element.name.raw
+            .should()
+            .eq("é")
+            .sum(@loc(), t),
         _ => t.fail_at(@loc(), "expected unicode empty element"),
     }
 }
 
+// Verifies document-level validation rules above tokenization.
 fn check_validation() void {
     let t = test.report(io.stderr())..&;
     let page = page()..&;
@@ -624,6 +645,7 @@ fn check_validation() void {
     }
 }
 
+// Verifies structured reader helpers skip ignorable events and detect mismatch.
 fn check_expect_combinators() void {
     let t = test.report(io.stderr())..&;
     let mut r = reader("<!--meta--><root><leaf/></root>");
@@ -678,6 +700,7 @@ fn check_expect_combinators() void {
     }
 }
 
+// Verifies stream traits, filters, and mapping adapters compose correctly.
 fn check_stream_combinators() void {
     let t = test.report(io.stderr())..&;
 
@@ -715,11 +738,23 @@ fn check_stream_combinators() void {
 
     let mut noisy = reader("<!--meta--> \n <root><?go?></root>");
     let mut significant = noisy..&.filter_significant();
-    match (significant..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t)) {
+    let significant_start = significant
+        ..&.next()
+        .should_ok()
+        .sum(@loc(), t)
+        .should_some()
+        .sum(@loc(), t);
+    match (significant_start) {
         .{ Start: root } => root.name.eq("root").should().sum(@loc(), t),
         _ => t.fail_at(@loc(), "expected significant start"),
     }
-    match (significant..&.next().should_ok().sum(@loc(), t).should_some().sum(@loc(), t)) {
+    let significant_end = significant
+        ..&.next()
+        .should_ok()
+        .sum(@loc(), t)
+        .should_some()
+        .sum(@loc(), t);
+    match (significant_end) {
         .{ End: name } => name.eq("root").should().sum(@loc(), t),
         _ => t.fail_at(@loc(), "expected significant end"),
     }
@@ -759,6 +794,7 @@ fn check_stream_combinators() void {
     expect_no_name(names..&);
 }
 
+// Verifies lexical namespace helpers on element and attribute names.
 fn check_namespace_views() void {
     let t = test.report(io.stderr())..&;
     let mut r = reader("<x:root xmlns=\"urn:default\" xmlns:x=\"urn:x\" x:id=\"7\" plain=\"v\"/>");
@@ -826,6 +862,7 @@ fn check_namespace_views() void {
     }
 }
 
+// Verifies namespace resolution over the borrowed document index.
 fn check_namespace_index_queries() void {
     let t = test.report(io.stderr())..&;
     let page = page()..&;
@@ -899,6 +936,7 @@ fn check_namespace_index_queries() void {
         .sum(@loc(), t);
 }
 
+// Verifies borrowed index topology and name-based navigation.
 fn check_borrowed_index() void {
     let t = test.report(io.stderr())..&;
     let page = page()..&;
@@ -991,6 +1029,7 @@ fn check_borrowed_index() void {
         .sum(@loc(), t);
 }
 
+// Verifies event rendering preserves the original source bytes.
 fn check_render_round_trip() void {
     let t = test.report(io.stderr())..&;
     let page = page()..&;
@@ -1009,6 +1048,7 @@ fn check_render_round_trip() void {
         .sum(@loc(), t);
 }
 
+// Verifies owned documents clone element slices and preserve topology.
 fn check_owned_document_tree() void {
     let t = test.report(io.stderr())..&;
     let page = page()..&;
@@ -1062,6 +1102,7 @@ fn check_owned_document_tree() void {
         .sum(@loc(), t);
 }
 
+// Verifies EOF handling across partial XML prefixes and attribute cursors.
 fn check_eof_split_positions() void {
     let t = test.report(io.stderr())..&;
 
@@ -1106,6 +1147,7 @@ fn check_eof_split_positions() void {
         .sum(@loc(), t);
 }
 
+// Test entry point for the broad smoke suite.
 fn main() i32 {
     check_basic_events();
     check_decode_entities();

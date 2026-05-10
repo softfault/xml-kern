@@ -1,3 +1,8 @@
+//! Lossless XML event rendering.
+//!
+//! Rendering replays borrowed event payloads exactly. It does not escape or
+//! normalize text, so callers should render events produced by this parser.
+
 use base.io.Write;
 
 use ..{
@@ -12,14 +17,17 @@ use ..{
     reader,
 };
 
+// Builds a rendering error at the source event offset being written.
 fn render_err(kind: RenderErrorKind, offset: usize) RenderError {
     return .{ kind, offset };
 }
 
+// Preserves parse offsets while rendering a reader stream.
 fn lift_parse(err: Error) RenderError {
     return .{ kind: .{ Parse: err.kind }, offset: err.offset };
 }
 
+// Converts writer backpressure/failure into the XML rendering error domain.
 fn write_all(
     writer: &mut Write,
     text: &[u8],
@@ -31,6 +39,7 @@ fn write_all(
     return .{ Ok: {} };
 }
 
+// Writes either an XML declaration or a processing instruction.
 fn write_pi(
     writer: &mut Write,
     open: &[u8],
@@ -47,6 +56,7 @@ fn write_pi(
     return .{ Ok: {} };
 }
 
+// Writes a start or empty element opening tag from borrowed raw slices.
 fn write_element_open(
     writer: &mut Write,
     marker: &[u8],
@@ -63,6 +73,7 @@ fn write_element_open(
     return .{ Ok: {} };
 }
 
+// Text-like bodies are written verbatim; escaping is intentionally not applied.
 fn write_text_body(
     writer: &mut Write,
     text: Text,

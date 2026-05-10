@@ -12,6 +12,7 @@ use ..{
     ResolvedName,
 };
 
+// Returns the first namespace separator in a lexical XML name.
 fn colon_at(raw: &[u8]) ?usize {
     let mut i = usize.{0};
     for (byte: raw.iter()) {
@@ -23,6 +24,7 @@ fn colon_at(raw: &[u8]) ?usize {
     return .None;
 }
 
+// Splits a raw XML name into optional prefix and local part.
 fn qualified(raw: &[u8]) QualifiedName {
     match (colon_at(raw)) {
         .{ Some: index } => return .{
@@ -90,6 +92,7 @@ impl &Attribute {
     }
 }
 
+// Finds an in-scope namespace declaration on one element.
 fn namespace_attr_value(element: Element, prefix: ?&[u8]) ?EncodedText {
     let mut attrs = element.attributes();
     while (true) {

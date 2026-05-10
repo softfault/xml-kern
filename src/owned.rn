@@ -1,3 +1,8 @@
+//! Owned XML document tree construction.
+//!
+//! Owned documents reuse the borrowed index topology and clone only the slices
+//! that need to outlive the original source buffer.
+
 use base.coll.{List, String, list, string};
 use base.mem.alloc.Allocator;
 
@@ -15,10 +20,12 @@ use ..{
     build_index,
 };
 
+// Builds an owned-document error at the source offset that caused it.
 fn owned_err(kind: OwnedErrorKind, offset: usize) OwnedError {
     return .{ kind, offset };
 }
 
+// Keeps parse, validation, and allocation failures visible in the owned domain.
 fn lift_index(err: ..IndexError) OwnedError {
     match (err.kind) {
         .{ Parse: kind } => return .{ kind: .{ Parse: kind }, offset: err.offset },
@@ -27,6 +34,7 @@ fn lift_index(err: ..IndexError) OwnedError {
     }
 }
 
+// Clones one borrowed byte slice into a Kern string with ownership errors.
 fn clone_text(
     alloc: &mut Allocator,
     text: &[u8],
@@ -39,6 +47,7 @@ fn clone_text(
     return .{ Ok: out };
 }
 
+// Copies the element slices stored by an indexed node.
 fn clone_element(alloc: &mut Allocator, node: IndexedNode) OwnedElement!OwnedError {
     let name = clone_text(alloc, node.element.name.raw, 0).!;
     let raw = clone_text(alloc, node.element.raw, 0).!;
@@ -46,6 +55,7 @@ fn clone_element(alloc: &mut Allocator, node: IndexedNode) OwnedElement!OwnedErr
     return .{ Ok: .{ name, raw, attributes_raw } };
 }
 
+// Releases one owned element and leaves it in an empty reusable state.
 fn deinit_element(alloc: &mut Allocator, element: &mut OwnedElement) void {
     element.name..&.deinit(alloc);
     element.raw..&.deinit(alloc);
@@ -57,6 +67,7 @@ fn deinit_element(alloc: &mut Allocator, element: &mut OwnedElement) void {
     };
 }
 
+// Mirrors an indexed node into the owned document after cloning its element.
 fn push_owned_node(
     out: &mut OwnedDocument,
     alloc: &mut Allocator,

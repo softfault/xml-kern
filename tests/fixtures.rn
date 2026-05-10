@@ -1,3 +1,5 @@
+//! Fixture-heavy integration tests for realistic XML input.
+
 use base.mem.alloc.gpa;
 use base.test;
 use std.io;
@@ -42,6 +44,7 @@ struct Counts {
     namespace_decls: usize = 0,
 };
 
+// Counts namespace declaration attributes on one element.
 fn count_namespace_attrs(element: xml.Element) usize {
     let t = test.report(io.stderr())..&;
     let mut total = usize.{0};
@@ -59,6 +62,7 @@ fn count_namespace_attrs(element: xml.Element) usize {
     return total;
 }
 
+// Adds one parsed event into the fixture coverage counters.
 fn count_event(counts: &mut Counts, event: Event) void {
     match (event) {
         .{ Declaration: _ } => counts.declarations += 1,
@@ -80,6 +84,7 @@ fn count_event(counts: &mut Counts, event: Event) void {
     }
 }
 
+// Reads the full fixture and returns aggregate event counts.
 fn read_fixture_counts() Counts {
     let t = test.report(io.stderr())..&;
     let mut counts = Counts.{};
@@ -95,6 +100,7 @@ fn read_fixture_counts() Counts {
     return counts;
 }
 
+// Verifies the fixture exercises the expected event mix.
 fn check_large_fixture_reader() void {
     let t = test.report(io.stderr())..&;
     let counts = read_fixture_counts();
@@ -140,6 +146,7 @@ fn check_large_fixture_reader() void {
         .sum(@loc(), t);
 }
 
+// Verifies validation succeeds on the larger fixture.
 fn check_large_fixture_validation() void {
     let t = test.report(io.stderr())..&;
     let page = page()..&;
@@ -150,6 +157,7 @@ fn check_large_fixture_validation() void {
         .sum(@loc(), t);
 }
 
+// Verifies rendering can replay the fixture byte-for-byte.
 fn check_large_fixture_round_trip() void {
     let t = test.report(io.stderr())..&;
     let page = page()..&;
@@ -167,6 +175,7 @@ fn check_large_fixture_round_trip() void {
         .sum(@loc(), t);
 }
 
+// Test entry point for the fixture suite.
 fn main() i32 {
     check_large_fixture_reader();
     check_large_fixture_validation();

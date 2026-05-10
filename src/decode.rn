@@ -1,3 +1,8 @@
+//! XML entity and character-reference decoding.
+//!
+//! Decoding is explicit: callers can first measure the decoded size, then write
+//! into an exact caller-provided buffer or clone into owned storage.
+
 use base.coll.{String, string};
 use base.mem.alloc.Allocator;
 
@@ -8,6 +13,7 @@ fn decode_err(kind: DecodeErrorKind, offset: usize) DecodeError {
     return .{ kind, offset };
 }
 
+// Parses one hexadecimal digit used by character references.
 fn hex_value(byte: u8) ?u32 {
     if (byte >= b'0' and byte <= b'9') return .{ Some: (byte - b'0') as u32 };
     if (byte >= b'a' and byte <= b'f') return .{ Some: (byte - b'a') as u32 + 10 };
@@ -15,15 +21,18 @@ fn hex_value(byte: u8) ?u32 {
     return .None;
 }
 
+// Parses one decimal digit used by character references.
 fn dec_value(byte: u8) ?u32 {
     if (byte >= b'0' and byte <= b'9') return .{ Some: (byte - b'0') as u32 };
     return .None;
 }
 
+// XML references may not encode surrogate codepoints or values above Unicode.
 fn is_valid_codepoint(codepoint: u32) bool {
     return codepoint <= 0x10FFFF and !(codepoint >= 0xD800 and codepoint <= 0xDFFF);
 }
 
+// Computes the UTF-8 byte width after XML character-reference validation.
 fn utf8_len(codepoint: u32) usize!DecodeError {
     if (!is_valid_codepoint(codepoint)) {
         return .{ Err: decode_err(.InvalidCodepoint, 0) };
@@ -34,6 +43,7 @@ fn utf8_len(codepoint: u32) usize!DecodeError {
     return .{ Ok: 4 };
 }
 
+// Encodes one validated scalar into `out` at `index`.
 fn write_utf8_at(
     codepoint: u32,
     out: &mut [u8],
@@ -65,6 +75,7 @@ fn write_utf8_at(
     return .{ Ok: index + 4 };
 }
 
+// Resolves the five predefined XML entity names.
 fn named_entity(text: &[u8]) ?u8 {
     if (text == "amp") return .{ Some: b'&' };
     if (text == "lt") return .{ Some: b'<' };
@@ -89,6 +100,8 @@ fn parse_char_ref(text: &[u8], offset: usize) u32!DecodeError {
     }
 
     let mut value = u32.{0};
+    // Character references are numeric accumulators, so the loop must track
+    // both source offset and overflow boundary.
     while (index < #text) {
         let digit = if (hex) hex_value(text.[index]) else dec_value(text.[index]);
         let .{ Some: d } = digit else {
@@ -106,8 +119,10 @@ fn parse_char_ref(text: &[u8], offset: usize) u32!DecodeError {
     return .{ Ok: value };
 }
 
+// Finds the semicolon that terminates an entity or character reference.
 fn reference_end(text: &[u8], amp: usize) usize!DecodeError {
     let mut index = amp + 1;
+    // The returned semicolon offset is used in diagnostics and slice bounds.
     while (index < #text and text.[index] != b';') {
         index += 1;
     }
@@ -120,7 +135,10 @@ fn reference_end(text: &[u8], amp: usize) usize!DecodeError {
 impl EncodedText {
     /// Returns `true` when the text contains an entity or character reference marker.
     pub fn contains_reference() bool {
+        // A byte scan is enough because `&` is ASCII and cannot appear inside a
+        // multibyte UTF-8 continuation sequence.
         let mut index = 0;
+        // Keep byte offsets explicit for the later decode/diagnostic path.
         while (index < #self.raw) {
             if (self.raw.[index] == b'&') {
                 return true;
@@ -132,8 +150,12 @@ impl EncodedText {
 
     /// Returns the byte length after decoding XML references.
     pub fn decoded_size() usize!DecodeError {
+        // Keep size computation and actual decoding behavior aligned by sharing
+        // `reference_end`, `parse_char_ref`, and `named_entity`.
         let mut size = 0;
         let mut index = 0;
+        // Decoded size depends on entity boundaries, so index advancement jumps
+        // over complete references rather than visiting every byte uniformly.
         while (index < #self.raw) {
             if (self.raw.[index] != b'&') {
                 size += 1;
@@ -159,8 +181,11 @@ impl EncodedText {
 
     /// Writes decoded text into `out` and returns the number of bytes written.
     pub fn write_decoded(out: &mut [u8]) usize!DecodeError {
+        // This loop copies runs byte-by-byte because decoding only changes
+        // payload after an ampersand marker.
         let mut written = 0;
         let mut index = 0;
+        // The source index and output index intentionally advance separately.
         while (index < #self.raw) {
             if (self.raw.[index] != b'&') {
                 if (written >= #out) {

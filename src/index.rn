@@ -1,3 +1,8 @@
+//! Borrowed element index built from a validated XML source buffer.
+//!
+//! The index stores only element events and topology links. Text and metadata
+//! events remain accessible through the streaming reader when needed.
+
 use base.coll.{List, list};
 use base.mem.alloc.Allocator;
 
@@ -14,14 +19,17 @@ use ..{
     reader,
 };
 
+// Builds an index error at the source offset that caused it.
 fn index_err(kind: IndexErrorKind, offset: usize) IndexError {
     return .{ kind, offset };
 }
 
+// Preserves parser offsets while moving tokenizer failures into index errors.
 fn lift_parse(err: Error) IndexError {
     return .{ kind: .{ Parse: err.kind }, offset: err.offset };
 }
 
+// Converts a missing node into an internal index-construction failure.
 fn node_at(nodes: &mut List[IndexedNode], index: usize) (&mut IndexedNode)!IndexError {
     let .{ Some: node } = nodes.get_ptr(index) else {
         return .{ Err: index_err(.OutOfMemory, 0) };
