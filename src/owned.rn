@@ -4,7 +4,7 @@
 //! that need to outlive the original source buffer.
 
 use base.coll.{List, String, list, string};
-use base.mem.alloc.Allocator;
+use base.mem.alloc.{AllocError, Allocator};
 
 use ..{
     DocumentIndex,
@@ -24,11 +24,20 @@ fn owned_err(kind: OwnedErrorKind, offset: usize) OwnedError {
     return .{ kind, offset };
 }
 
+// Preserves allocation failure shape in the public owned-document error domain.
+fn owned_alloc_err(err: AllocError, offset: usize) OwnedError {
+    match (err) {
+        .CapacityOverflow => return owned_err(.CapacityOverflow, offset),
+        .OutOfMemory => return owned_err(.OutOfMemory, offset),
+    }
+}
+
 // Keeps parse, validation, and allocation failures visible in the owned domain.
 fn lift_index(err: ..IndexError) OwnedError {
     match (err.kind) {
         .{ Parse: kind } => return .{ kind: .{ Parse: kind }, offset: err.offset },
         .{ Validate: kind } => return .{ kind: .{ Validate: kind }, offset: err.offset },
+        .CapacityOverflow => return .{ kind: .CapacityOverflow, offset: err.offset },
         .OutOfMemory => return .{ kind: .OutOfMemory, offset: err.offset },
     }
 }
@@ -40,8 +49,9 @@ fn clone_text(
     offset: usize,
 ) String!OwnedError {
     let mut out = string();
-    if (!out..&.clone_from_exact(alloc, text)) {
-        return .{ Err: owned_err(.OutOfMemory, offset) };
+    match (out..&.try_clone_from_exact(alloc, text)) {
+        .{ Ok: _ } => {},
+        .{ Err: err } => return .{ Err: owned_alloc_err(err, offset) },
     }
     return .{ Ok: out };
 }
@@ -81,8 +91,9 @@ fn push_owned_node(
         next_sibling: source.next_sibling,
         depth: source.depth,
     };
-    if (!out.nodes..&.push(alloc, node)) {
-        return .{ Err: owned_err(.OutOfMemory, 0) };
+    match (out.nodes..&.try_push(alloc, node)) {
+        .{ Ok: _ } => {},
+        .{ Err: err } => return .{ Err: owned_alloc_err(err, 0) },
     }
     return .{ Ok: {} };
 }

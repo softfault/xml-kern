@@ -4,7 +4,7 @@
 //! events remain accessible through the streaming reader when needed.
 
 use base.coll.{List, list};
-use base.mem.alloc.Allocator;
+use base.mem.alloc.{AllocError, Allocator};
 
 use ..{
     DocumentIndex,
@@ -22,6 +22,14 @@ use ..{
 // Builds an index error at the source offset that caused it.
 fn index_err(kind: IndexErrorKind, offset: usize) IndexError {
     return .{ kind, offset };
+}
+
+// Preserves allocation failure shape in the public index error domain.
+fn index_alloc_err(err: AllocError, offset: usize) IndexError {
+    match (err) {
+        .CapacityOverflow => return index_err(.CapacityOverflow, offset),
+        .OutOfMemory => return index_err(.OutOfMemory, offset),
+    }
 }
 
 // Preserves parser offsets while moving tokenizer failures into index errors.
@@ -59,8 +67,9 @@ fn push_node(
         next_sibling: .None,
         depth: depth,
     };
-    if (!nodes.push(alloc, node)) {
-        return .{ Err: index_err(.OutOfMemory, offset) };
+    match (nodes.try_push(alloc, node)) {
+        .{ Ok: _ } => {},
+        .{ Err: err } => return .{ Err: index_alloc_err(err, offset) },
     }
 
     match (parent) {
@@ -85,8 +94,11 @@ fn push_node(
         .None => {},
     }
 
-    if (!closed and !stack.push(alloc, index)) {
-        return .{ Err: index_err(.OutOfMemory, offset) };
+    if (!closed) {
+        match (stack.try_push(alloc, index)) {
+            .{ Ok: _ } => {},
+            .{ Err: err } => return .{ Err: index_alloc_err(err, offset) },
+        }
     }
     return .{ Ok: {} };
 }

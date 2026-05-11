@@ -96,6 +96,7 @@ pub enum DecodeErrorKind {
     InvalidCodepoint,
     UnterminatedReference,
     BufferTooSmall,
+    CapacityOverflow,
     OutOfMemory,
 };
 
@@ -122,6 +123,7 @@ pub struct ExpectError {
 /// Well-formedness validation error categories.
 pub enum ValidateErrorKind {
     Parse: ErrorKind,
+    CapacityOverflow,
     OutOfMemory,
     DuplicateAttribute,
     MultipleRoots,
@@ -140,6 +142,7 @@ pub struct ValidateError {
 pub enum IndexErrorKind {
     Parse: ErrorKind,
     Validate: ValidateErrorKind,
+    CapacityOverflow,
     OutOfMemory,
 };
 
@@ -165,6 +168,7 @@ pub struct RenderError {
 pub enum OwnedErrorKind {
     Parse: ErrorKind,
     Validate: ValidateErrorKind,
+    CapacityOverflow,
     OutOfMemory,
 };
 
@@ -406,6 +410,7 @@ impl &DecodeErrorKind : Formatable {
             .InvalidCodepoint => _ = writer.write("invalid Unicode codepoint"),
             .UnterminatedReference => _ = writer.write("unterminated XML reference"),
             .BufferTooSmall => _ = writer.write("buffer too small"),
+            .CapacityOverflow => _ = writer.write("capacity overflow"),
             .OutOfMemory => _ = writer.write("out of memory"),
         }
     }
@@ -446,6 +451,7 @@ impl &ValidateErrorKind : Formatable {
     pub fn write_to(writer: &mut Write) void {
         match (self.*) {
             .{ Parse: kind } => kind.&.write_to(writer),
+            .CapacityOverflow => _ = writer.write("capacity overflow"),
             .OutOfMemory => _ = writer.write("out of memory"),
             .DuplicateAttribute => _ = writer.write("duplicate XML attribute"),
             .MultipleRoots => _ = writer.write("multiple XML root elements"),
@@ -471,6 +477,7 @@ impl &IndexErrorKind : Formatable {
         match (self.*) {
             .{ Parse: kind } => kind.&.write_to(writer),
             .{ Validate: kind } => kind.&.write_to(writer),
+            .CapacityOverflow => _ = writer.write("capacity overflow"),
             .OutOfMemory => _ = writer.write("out of memory"),
         }
     }
@@ -510,6 +517,7 @@ impl &OwnedErrorKind : Formatable {
         match (self.*) {
             .{ Parse: kind } => kind.&.write_to(writer),
             .{ Validate: kind } => kind.&.write_to(writer),
+            .CapacityOverflow => _ = writer.write("capacity overflow"),
             .OutOfMemory => _ = writer.write("out of memory"),
         }
     }

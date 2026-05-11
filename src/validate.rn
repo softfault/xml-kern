@@ -4,7 +4,7 @@
 //! declaration placement, and duplicate attributes.
 
 use base.coll.{list, map};
-use base.mem.alloc.Allocator;
+use base.mem.alloc.{AllocError, Allocator};
 
 use ..{
     Element,
@@ -20,6 +20,14 @@ use ..{
 // Builds a validation error at the source offset that caused it.
 fn validate_err(kind: ValidateErrorKind, offset: usize) ValidateError {
     return .{ kind, offset };
+}
+
+// Preserves allocation failure shape in the public validation error domain.
+fn validate_alloc_err(err: AllocError, offset: usize) ValidateError {
+    match (err) {
+        .CapacityOverflow => return validate_err(.CapacityOverflow, offset),
+        .OutOfMemory => return validate_err(.OutOfMemory, offset),
+    }
 }
 
 // Preserves tokenizer offsets while moving parse failures into validation.
@@ -52,8 +60,9 @@ fn has_duplicate_attributes(
         if (seen.get_ptr(attr.name.raw).is_some()) {
             return .{ Ok: true };
         }
-        if (!seen.insert(alloc, attr.name.raw, true)) {
-            return .{ Err: validate_err(.OutOfMemory, event_start) };
+        match (seen.try_insert(alloc, attr.name.raw, true)) {
+            .{ Ok: _ } => {},
+            .{ Err: err } => return .{ Err: validate_alloc_err(err, event_start) },
         }
     }
     return .{ Ok: false };
@@ -88,8 +97,10 @@ impl &mut Reader {
                         }
                         saw_root = true;
                     }
-                    if (!stack.push(alloc, element.name)) {
-                        return .{ Err: validate_err(.OutOfMemory, self.index - #element.raw) };
+                    let offset = self.index - #element.raw;
+                    match (stack.try_push(alloc, element.name)) {
+                        .{ Ok: _ } => {},
+                        .{ Err: err } => return .{ Err: validate_alloc_err(err, offset) },
                     }
                 },
                 .{ Empty: element } => {
