@@ -6,6 +6,7 @@
 
 use ..Error;
 use ..ErrorKind;
+use base.text.utf8;
 
 /// Creates a tokenizer error at `offset`.
 pub/ fn err(kind: ErrorKind, offset: usize) Error {
@@ -116,78 +117,16 @@ pub/ fn is_name_continue(byte: u8) bool {
         or (byte >= b'0' and byte <= b'9');
 }
 
-/// Decoded UTF-8 scalar and its source byte length.
-pub/ struct Utf8Char {
-    codepoint: u32,
-    len: usize,
-};
-
-// UTF-8 continuation bytes all have the `10xxxxxx` high-bit pattern.
-fn is_continuation(byte: u8) bool {
-    return (byte & 0xC0) == 0x80;
-}
-
-// Decodes one UTF-8 scalar and rejects overlong encodings, surrogates, and
-// values beyond the Unicode maximum before XML name validation sees them.
-fn read_utf8(text: &[u8], start: usize) Utf8Char!Error {
-    if (start >= #text) {
-        return .{ Err: err(.UnexpectedEof, start) };
-    }
-
-    let b0 = text.[start];
-    if (b0 < 0x80) {
-        return .{ Ok: .{ codepoint: b0 as u32, len: 1 } };
-    }
-
-    // Two-byte scalars must start at C2; C0 and C1 would be overlong ASCII.
-    if (b0 >= 0xC2 and b0 <= 0xDF) {
-        if (start + 1 >= #text or !is_continuation(text.[start + 1])) {
-            return .{ Err: err(.InvalidName, start) };
-        }
-        let value = ((b0 & 0x1F) as u32) << 6 | ((text.[start + 1] & 0x3F) as u32);
-        return .{ Ok: .{ codepoint: value, len: 2 } };
-    }
-
-    // Three-byte scalars need extra boundary checks for overlong forms and
-    // UTF-16 surrogate codepoints.
-    if (b0 >= 0xE0 and b0 <= 0xEF) {
-        if (start + 2 >= #text
-            or !is_continuation(text.[start + 1])
-            or !is_continuation(text.[start + 2])
-        ) {
-            return .{ Err: err(.InvalidName, start) };
-        }
-        let b1 = text.[start + 1];
-        if ((b0 == 0xE0 and b1 < 0xA0) or (b0 == 0xED and b1 >= 0xA0)) {
-            return .{ Err: err(.InvalidName, start) };
-        }
-        let value = ((b0 & 0x0F) as u32) << 12
-            | ((b1 & 0x3F) as u32) << 6
-            | ((text.[start + 2] & 0x3F) as u32);
-        return .{ Ok: .{ codepoint: value, len: 3 } };
-    }
-
-    // Four-byte scalars are valid only up to U+10FFFF.
-    if (b0 >= 0xF0 and b0 <= 0xF4) {
-        if (start + 3 >= #text
-            or !is_continuation(text.[start + 1])
-            or !is_continuation(text.[start + 2])
-            or !is_continuation(text.[start + 3])
-        ) {
-            return .{ Err: err(.InvalidName, start) };
-        }
-        let b1 = text.[start + 1];
-        if ((b0 == 0xF0 and b1 < 0x90) or (b0 == 0xF4 and b1 > 0x8F)) {
-            return .{ Err: err(.InvalidName, start) };
-        }
-        let value = ((b0 & 0x07) as u32) << 18
-            | ((b1 & 0x3F) as u32) << 12
-            | ((text.[start + 2] & 0x3F) as u32) << 6
-            | ((text.[start + 3] & 0x3F) as u32);
-        return .{ Ok: .{ codepoint: value, len: 4 } };
-    }
-
-    return .{ Err: err(.InvalidName, start) };
+// Maps generic UTF-8 decoding failures into XML name diagnostics.
+fn read_name_utf8(text: &[u8], start: usize) utf8.Utf8Scalar!Error {
+    return match (utf8.read_at(text, start)) {
+        .{ Ok: scalar } => .{ Ok: scalar },
+        .{ Err: e } => .{ Err: match (e) {
+            .UnexpectedEof => err(.UnexpectedEof, start),
+            .{ InvalidEncoding: offset } => err(.InvalidName, offset),
+            _ => err(.InvalidName, start),
+        } },
+    };
 }
 
 // Checks the XML NameStartChar scalar set after UTF-8 decoding.
@@ -230,7 +169,7 @@ pub/ fn name_end(text: &[u8], start: usize) usize!Error {
     if (start >= #text) {
         return .{ Err: err(.UnexpectedEof, start) };
     }
-    let first = read_utf8(text, start).!;
+    let first = read_name_utf8(text, start).!;
     if (!is_xml_name_start_scalar(first.codepoint)) {
         return .{ Err: err(.InvalidName, start) };
     }
@@ -238,7 +177,7 @@ pub/ fn name_end(text: &[u8], start: usize) usize!Error {
     let mut i = start + first.len;
     // Name scanning advances by UTF-8 scalar width, not by individual bytes.
     while (i < #text) {
-        let ch = read_utf8(text, i).!;
+        let ch = read_name_utf8(text, i).!;
         if (!is_xml_name_continue_scalar(ch.codepoint)) {
             break;
         }

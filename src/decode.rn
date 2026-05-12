@@ -5,6 +5,7 @@
 
 use base.coll.{String, string};
 use base.mem.alloc.{AllocError, Allocator};
+use base.text.{ascii, unicode, utf8};
 
 use ..{DecodeError, DecodeErrorKind, EncodedText};
 
@@ -23,64 +24,28 @@ fn decode_alloc_err(err: AllocError, offset: usize) DecodeError {
 
 // Parses one hexadecimal digit used by character references.
 fn hex_value(byte: u8) ?u32 {
-    if (byte >= b'0' and byte <= b'9') return .{ Some: (byte - b'0') as u32 };
-    if (byte >= b'a' and byte <= b'f') return .{ Some: (byte - b'a') as u32 + 10 };
-    if (byte >= b'A' and byte <= b'F') return .{ Some: (byte - b'A') as u32 + 10 };
-    return .None;
+    let .{ Some: value } = ascii.hex_value(byte) else return .None;
+    return .{ Some: value as u32 };
 }
 
 // Parses one decimal digit used by character references.
 fn dec_value(byte: u8) ?u32 {
-    if (byte >= b'0' and byte <= b'9') return .{ Some: (byte - b'0') as u32 };
-    return .None;
+    let .{ Some: value } = ascii.digit_value(byte, 10) else return .None;
+    return .{ Some: value as u32 };
 }
 
 // XML references may not encode surrogate codepoints or values above Unicode.
 fn is_valid_codepoint(codepoint: u32) bool {
-    return codepoint <= 0x10FFFF and !(codepoint >= 0xD800 and codepoint <= 0xDFFF);
+    return unicode.is_scalar(codepoint);
 }
 
-// Computes the UTF-8 byte width after XML character-reference validation.
-fn utf8_len(codepoint: u32) usize!DecodeError {
-    if (!is_valid_codepoint(codepoint)) {
-        return .{ Err: decode_err(.InvalidCodepoint, 0) };
-    }
-    if (codepoint <= 0x7F) return .{ Ok: 1 };
-    if (codepoint <= 0x7FF) return .{ Ok: 2 };
-    if (codepoint <= 0xFFFF) return .{ Ok: 3 };
-    return .{ Ok: 4 };
-}
-
-// Encodes one validated scalar into `out` at `index`.
-fn write_utf8_at(
-    codepoint: u32,
-    out: &mut [u8],
-    index: usize,
-) usize!DecodeError {
-    let len = utf8_len(codepoint).!;
-    if (#out - index < len) {
-        return .{ Err: decode_err(.BufferTooSmall, index) };
-    }
-    if (len == 1) {
-        out.[index] = codepoint as u8;
-        return .{ Ok: index + 1 };
-    }
-    if (len == 2) {
-        out.[index] = 0xC0 | ((codepoint >> 6) as u8);
-        out.[index + 1] = 0x80 | ((codepoint & 0x3F) as u8);
-        return .{ Ok: index + 2 };
-    }
-    if (len == 3) {
-        out.[index] = 0xE0 | ((codepoint >> 12) as u8);
-        out.[index + 1] = 0x80 | (((codepoint >> 6) & 0x3F) as u8);
-        out.[index + 2] = 0x80 | ((codepoint & 0x3F) as u8);
-        return .{ Ok: index + 3 };
-    }
-    out.[index] = 0xF0 | ((codepoint >> 18) as u8);
-    out.[index + 1] = 0x80 | (((codepoint >> 12) & 0x3F) as u8);
-    out.[index + 2] = 0x80 | (((codepoint >> 6) & 0x3F) as u8);
-    out.[index + 3] = 0x80 | ((codepoint & 0x3F) as u8);
-    return .{ Ok: index + 4 };
+// Maps generic UTF-8 scalar failures into XML reference decoding diagnostics.
+fn decode_utf8_err(err: utf8.Utf8Error, offset: usize) DecodeError {
+    return match (err) {
+        .InvalidScalar => decode_err(.InvalidCodepoint, offset),
+        .ShortOutput => decode_err(.BufferTooSmall, offset),
+        _ => decode_err(.InvalidCodepoint, offset),
+    };
 }
 
 // Resolves the five predefined XML entity names.
@@ -175,7 +140,11 @@ impl EncodedText {
             let body = self.raw.&[index + 1 .. end];
             if (#body > 0 and body.[0] == b'#') {
                 let codepoint = parse_char_ref(body, index + 1).!;
-                size += utf8_len(codepoint).!;
+                let width = match (utf8.len(codepoint)) {
+                    .{ Ok: value } => value,
+                    .{ Err: err } => return .{ Err: decode_utf8_err(err, index + 1) },
+                };
+                size += width;
             } else {
                 let .{ Some: _ } = named_entity(body) else {
                     return .{ Err: decode_err(.UnknownEntity, index) };
@@ -209,7 +178,10 @@ impl EncodedText {
             let body = self.raw.&[index + 1 .. end];
             if (#body > 0 and body.[0] == b'#') {
                 let codepoint = parse_char_ref(body, index + 1).!;
-                written = write_utf8_at(codepoint, out, written).!;
+                written = match (utf8.write_at(codepoint, out, written)) {
+                    .{ Ok: value } => value,
+                    .{ Err: err } => return .{ Err: decode_utf8_err(err, index + 1) },
+                };
             } else {
                 let .{ Some: value } = named_entity(body) else {
                     return .{ Err: decode_err(.UnknownEntity, index) };
