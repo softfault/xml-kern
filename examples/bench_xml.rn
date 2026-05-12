@@ -109,17 +109,16 @@ fn build_sample(alloc: &mut base.mem.alloc.Allocator) ?String {
     let mut out = string();
     let row_bytes = #TYPE_ROW + #COMMAND_ROW + #FEATURE_ROW + #EXTENSION_ROW;
     let reserve_bytes = #HEADER + #FOOTER + SAMPLE_REPETITIONS * row_bytes;
-    if (!out..&.reserve(alloc, reserve_bytes)) {
-        return .None;
-    }
-    if (!out..&.push_str(alloc, HEADER)) return .None;
+    let builder = out..&;
+    let .{ Ok: _ } = builder.try_reserve(alloc, reserve_bytes) else return .None;
+    let .{ Ok: _ } = builder.try_push_str(alloc, HEADER) else return .None;
     for (_: range[usize](0, SAMPLE_REPETITIONS)) {
-        if (!out..&.push_str(alloc, TYPE_ROW)) return .None;
-        if (!out..&.push_str(alloc, COMMAND_ROW)) return .None;
-        if (!out..&.push_str(alloc, FEATURE_ROW)) return .None;
-        if (!out..&.push_str(alloc, EXTENSION_ROW)) return .None;
+        let .{ Ok: _ } = builder.try_push_str(alloc, TYPE_ROW) else return .None;
+        let .{ Ok: _ } = builder.try_push_str(alloc, COMMAND_ROW) else return .None;
+        let .{ Ok: _ } = builder.try_push_str(alloc, FEATURE_ROW) else return .None;
+        let .{ Ok: _ } = builder.try_push_str(alloc, EXTENSION_ROW) else return .None;
     }
-    if (!out..&.push_str(alloc, FOOTER)) return .None;
+    let .{ Ok: _ } = builder.try_push_str(alloc, FOOTER) else return .None;
     return .{ Some: out };
 }
 
@@ -130,9 +129,7 @@ fn make_input(
     label_text: &[u8],
 ) ?BenchInput {
     let mut label_storage = string();
-    if (!label_storage..&.push_str(alloc, label_text)) {
-        return .None;
-    }
+    let .{ Ok: _ } = label_storage..&.try_push_str(alloc, label_text) else return .None;
     return .{ Some: BenchInput.{
         storage: storage,
         label_storage: label_storage,
