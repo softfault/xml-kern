@@ -33,3 +33,17 @@ package = "xml 0.1.0 root"
 kind = "example"
 name = "bench_xml"
 root = "examples/bench_xml.kn"
+
+[[publish-proof]]
+package-id = "xml 0.1.0 root"
+path = "."
+package = "xml"
+version = "0.1.0"
+kern = "0.7.6"
+description = "XML parsing and decoding utilities for Kern"
+license = "MIT"
+authors = ["softfault <givenyoung46@gmail.com>"]
+readme = "README.md"
+repository = "https://github.com/softfault/xml-kern.git"
+manifest-sha256 = "sha256:57c005fb41a612f0bc8723454426c99d788b4b00dd674024209306469b5bbad8"
+source-sha256 = "sha256:755b8aa600760911676e92248f06b80e0ecfce3a82ee1fb3c50dc92b52d36ed2"
