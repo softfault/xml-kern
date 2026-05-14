@@ -357,7 +357,7 @@ impl &[u8] {
     pub fn location(offset: usize) Location {
         let mut line = 1;
         let mut column = 1;
-        let limit = if (offset < self.len()) offset else self.len();
+        let limit = if (offset < self.@len()) offset else self.@len();
         for (byte: self.&[0...limit].iter()) {
             if (byte == b'\n') {
                 line += 1;
@@ -535,7 +535,7 @@ impl &OwnedError : Formatable {
 impl Name {
     /// Returns `true` when the name slice is empty.
     pub fn is_empty() bool {
-        return self.raw.len() == 0;
+        return self.raw.@len() == 0;
     }
 
     /// Compares the borrowed name bytes with `text`.

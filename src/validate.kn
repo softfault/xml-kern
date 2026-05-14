@@ -87,17 +87,17 @@ impl &mut Reader {
                         return .{ Err: validate_err(.DuplicateAttribute, event_start) };
                     }
                     if (closed_root and !is_ignorable_text(element.raw)) {
-                        let offset = self.index - element.raw.len();
+                        let offset = self.index - element.raw.@len();
                         return .{ Err: validate_err(.MultipleRoots, offset) };
                     }
                     if (stack.is_empty()) {
                         if (saw_root) {
-                            let offset = self.index - element.raw.len();
+                            let offset = self.index - element.raw.@len();
                             return .{ Err: validate_err(.MultipleRoots, offset) };
                         }
                         saw_root = true;
                     }
-                    let offset = self.index - element.raw.len();
+                    let offset = self.index - element.raw.@len();
                     match (stack.try_push(alloc, element.name)) {
                         .{ Ok: _ } => {},
                         .{ Err: err } => return .{ Err: validate_alloc_err(err, offset) },
@@ -109,7 +109,7 @@ impl &mut Reader {
                     }
                     if (stack.is_empty()) {
                         if (saw_root) {
-                            let offset = self.index - element.raw.len();
+                            let offset = self.index - element.raw.@len();
                             return .{ Err: validate_err(.MultipleRoots, offset) };
                         }
                         saw_root = true;
@@ -129,7 +129,7 @@ impl &mut Reader {
                 },
                 .{ Text: text } => {
                     if (closed_root and !is_ignorable_text(text.raw)) {
-                        let offset = self.index - text.raw.len();
+                        let offset = self.index - text.raw.@len();
                         return .{ Err: validate_err(.MultipleRoots, offset) };
                     }
                 },

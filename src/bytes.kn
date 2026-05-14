@@ -24,7 +24,7 @@ pub/ fn is_ws(byte: u8) bool {
 /// Skips XML whitespace from `index`.
 pub/ fn skip_ws(text: &[u8], index: usize) usize {
     let mut i = index;
-    while (i < text.len() and is_ws(text.[i])) {
+    while (i < text.@len() and is_ws(text.[i])) {
         i += 1;
     }
     return i;
@@ -36,13 +36,13 @@ pub/ fn starts_with_at(
     index: usize,
     needle: &[u8],
 ) bool {
-    if (index > text.len() or text.len() - index < needle.len()) {
+    if (index > text.@len() or text.@len() - index < needle.@len()) {
         return false;
     }
     let mut i = 0;
     // Keep an index loop so the comparison can read both slices without
     // building an iterator pair in this tokenizer hot path.
-    while (i < needle.len()) {
+    while (i < needle.@len()) {
         if (text.[index + i] != needle.[i]) {
             return false;
         }
@@ -59,7 +59,7 @@ pub/ fn find_byte(
 ) ?usize {
     let mut i = start;
     // Index scanning returns the exact source byte offset of the first match.
-    while (i < text.len()) {
+    while (i < text.@len()) {
         if (text.[i] == needle) {
             return .{ Some: i };
         }
@@ -74,24 +74,24 @@ pub/ fn find(
     needle: &[u8],
     start: usize,
 ) ?usize {
-    if (needle.len() == 0) {
+    if (needle.@len() == 0) {
         return .{ Some: start };
     }
-    if (needle.len() == 1) {
+    if (needle.@len() == 1) {
         return find_byte(text, needle.[0], start);
     }
-    if (text.len() < needle.len() or start > text.len() - needle.len()) {
+    if (text.@len() < needle.@len() or start > text.@len() - needle.@len()) {
         return .None;
     }
     let first = needle.[0];
     let mut i = start;
-    while (i <= text.len() - needle.len()) {
+    while (i <= text.@len() - needle.@len()) {
         if (text.[i] == first) {
             let mut j = 1;
-            while (j < needle.len() and text.[i + j] == needle.[j]) {
+            while (j < needle.@len() and text.[i + j] == needle.[j]) {
                 j += 1;
             }
-            if (j == needle.len()) {
+            if (j == needle.@len()) {
                 return .{ Some: i };
             }
         }
@@ -166,7 +166,7 @@ fn is_xml_name_continue_scalar(codepoint: u32) bool {
 
 /// Returns the byte offset after a valid XML name.
 pub/ fn name_end(text: &[u8], start: usize) usize!Error {
-    if (start >= text.len()) {
+    if (start >= text.@len()) {
         return .{ Err: err(.UnexpectedEof, start) };
     }
     let first = read_name_utf8(text, start).?;
@@ -176,7 +176,7 @@ pub/ fn name_end(text: &[u8], start: usize) usize!Error {
 
     let mut i = start + first.len;
     // Name scanning advances by UTF-8 scalar width, not by individual bytes.
-    while (i < text.len()) {
+    while (i < text.@len()) {
         let ch = read_name_utf8(text, i).?;
         if (!is_xml_name_continue_scalar(ch.codepoint)) {
             break;
@@ -193,12 +193,12 @@ pub/ fn name_eq(
     stop: usize,
     expected: &[u8],
 ) bool {
-    if (stop < start or stop - start != expected.len()) {
+    if (stop < start or stop - start != expected.@len()) {
         return false;
     }
     let mut i = 0;
     // Compare by byte offset because XML names are already validated slices.
-    while (i < expected.len()) {
+    while (i < expected.@len()) {
         if (text.[start + i] != expected.[i]) {
             return false;
         }
@@ -209,7 +209,7 @@ pub/ fn name_eq(
 
 /// Trims XML whitespace from the right side of `text`.
 pub/ fn trim_right_ws(text: &[u8]) &[u8] {
-    let mut end = text.len();
+    let mut end = text.@len();
     while (end > 0 and is_ws(text.[end - 1])) {
         end -= 1;
     }

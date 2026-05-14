@@ -77,7 +77,7 @@ fn count_event(counts: &mut Counts, event: Event) void {
             counts.namespace_decls += count_namespace_attrs(element);
         },
         .{ End: _ } => counts.ends += 1,
-        .{ Text: text } => if (text.raw.len() > 0) counts.text += 1,
+        .{ Text: text } => if (text.raw.@len() > 0) counts.text += 1,
         .{ Comment: _ } => counts.comments += 1,
         .{ CData: _ } => counts.cdata += 1,
         .{ ProcessingInstruction: _ } => counts.processing += 1,

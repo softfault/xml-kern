@@ -48,7 +48,7 @@ fn write_pi(
 ) void!RenderError {
     write_all(writer, open, offset).?;
     write_all(writer, pi.target.raw, offset).?;
-    if (pi.body.len() > 0) {
+    if (pi.body.@len() > 0) {
         write_all(writer, " ", offset).?;
         write_all(writer, pi.body, offset).?;
     }
@@ -66,7 +66,7 @@ fn write_element_open(
 ) void!RenderError {
     write_all(writer, marker, offset).?;
     write_all(writer, element.name.raw, offset).?;
-    if (element.attributes_raw.len() > 0) {
+    if (element.attributes_raw.@len() > 0) {
         write_all(writer, element.attributes_raw, offset).?;
     }
     write_all(writer, suffix, offset).?;

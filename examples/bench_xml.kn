@@ -69,7 +69,7 @@ impl &mut BenchInput {
 
 // Parses a positive decimal iteration count from command-line text.
 fn parse_iterations(text: &[u8]) usize {
-    if (text.len() == 0) return 0usize;
+    if (text.@len() == 0) return 0usize;
     let mut value = 0usize;
     for (byte: text.iter()) {
         if (byte < b'0' or byte > b'9') return 0usize;
@@ -186,22 +186,22 @@ fn bench_parse(
             let .{ Ok: next } = r..&.next() else return false;
             let .{ Some: event } = next else break;
             sink += match (event) {
-                .{ Declaration: pi } => pi.raw.len(),
-                .{ ProcessingInstruction: pi } => pi.raw.len(),
-                .{ Start: element } => element.raw.len(),
-                .{ Empty: element } => element.raw.len(),
-                .{ End: name } => name.raw.len(),
-                .{ Text: value } => value.raw.len(),
-                .{ Comment: value } => value.raw.len(),
-                .{ CData: value } => value.raw.len(),
-                .{ Doctype: value } => value.raw.len(),
+                .{ Declaration: pi } => pi.raw.@len(),
+                .{ ProcessingInstruction: pi } => pi.raw.@len(),
+                .{ Start: element } => element.raw.@len(),
+                .{ Empty: element } => element.raw.@len(),
+                .{ End: name } => name.raw.@len(),
+                .{ Text: value } => value.raw.@len(),
+                .{ Comment: value } => value.raw.@len(),
+                .{ CData: value } => value.raw.@len(),
+                .{ Doctype: value } => value.raw.@len(),
             };
         }
     }
     print_stats(
         "parse",
         input_label,
-        text.len(),
+        text.@len(),
         iterations,
         start.elapsed(),
         sink,
@@ -226,7 +226,7 @@ fn bench_validate(
     print_stats(
         "validate",
         input_label,
-        text.len(),
+        text.@len(),
         iterations,
         start.elapsed(),
         sink,
@@ -243,17 +243,17 @@ fn bench_decode(
     let encoded = xml.EncodedText.{ raw: text };
     let .{ Ok: size } = encoded.decoded_size() else return false;
     let mut out: [256]u8 = undef;
-    if (size > out.len()) return false;
+    if (size > out.@len()) return false;
     let mut sink = 0usize;
     let start = time.monotonic().now();
     for (_: 0usize...iterations) {
-        let .{ Ok: written } = encoded.write_decoded(out..&[0...out.len()]) else return false;
+        let .{ Ok: written } = encoded.write_decoded(out..&[0...out.@len()]) else return false;
         sink += written;
     }
     print_stats(
         label,
         "inline",
-        text.len(),
+        text.@len(),
         iterations,
         start.elapsed(),
         sink,

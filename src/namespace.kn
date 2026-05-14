@@ -29,7 +29,7 @@ fn qualified(raw: &[u8]) QualifiedName {
     match (colon_at(raw)) {
         .{ Some: index } => return .{
             prefix: .{ Some: raw.&[0...index] },
-            local: raw.&[index + 1...raw.len()],
+            local: raw.&[index + 1...raw.@len()],
         },
         .None => return .{ prefix: .None, local: raw },
     }
@@ -73,7 +73,7 @@ impl &Attribute {
 
         let qname = self.name.&.qualified();
         let .{ Some: prefix } = qname.prefix else return .None;
-        if (prefix == "xmlns" and qname.local.len() > 0) {
+        if (prefix == "xmlns" and qname.local.@len() > 0) {
             let binding = NamespaceBinding.{
                 prefix: qname.local,
                 uri: self.value,
@@ -149,7 +149,7 @@ impl &DocumentIndex {
                     }
                 },
                 .None => {
-                    if (uri.len() == 0 and name.local == local) {
+                    if (uri.@len() == 0 and name.local == local) {
                         return .{ Some: node_index };
                     }
                 },

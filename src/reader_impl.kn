@@ -28,7 +28,7 @@ fn find_tag_end(text: &[u8], start: usize) usize!Error {
     let mut index = start;
     let mut quote = 0u8;
     // Tag scanning is stateful because quoted attribute values may contain `>`.
-    while (index < text.len()) {
+    while (index < text.@len()) {
         let byte = text.[index];
         if (quote != 0) {
             if (byte == quote) {
@@ -57,7 +57,7 @@ fn find_doctype_end(text: &[u8], start: usize) usize!Error {
     let mut quote = 0u8;
     let mut subset_depth = 0usize;
     // Doctype scanning tracks both quotes and internal subset bracket depth.
-    while (index < text.len()) {
+    while (index < text.@len()) {
         let byte = text.[index];
         if (quote != 0) {
             if (byte == quote) {
@@ -113,7 +113,7 @@ fn is_xml_target_case_insensitive(
 // Empty element syntax is `<name .../>`, possibly with whitespace before `/`.
 fn is_empty_tag(raw_inside: &[u8]) bool {
     let trimmed = trim_right_ws(raw_inside);
-    return trimmed.len() > 0 and trimmed.[trimmed.len() - 1] == b'/';
+    return trimmed.@len() > 0 and trimmed.[trimmed.@len() - 1] == b'/';
 }
 
 // XML comments may not contain a double-hyphen sequence in their body.
@@ -172,7 +172,7 @@ fn parse_end(text: &[u8], tag_start: usize) Name!Error {
     let name_start = tag_start + 2;
     let name_stop = name_end(text, name_start).?;
     let index = skip_ws(text, name_stop);
-    if (index >= text.len() or text.[index] != b'>') {
+    if (index >= text.@len() or text.[index] != b'>') {
         return .{ Err: err(.UnterminatedTag, tag_start) };
     }
     return .{ Ok: Name.{ raw: text.&[name_start...name_stop] } };
@@ -193,10 +193,10 @@ fn parse_pi(text: &[u8], start: usize) ProcessingInstruction!Error {
 
 // XML declarations accept version values of the form `1.<digits>`.
 fn is_version_value(value: &[u8]) bool {
-    if (value.len() < 3 or value.[0] != b'1' or value.[1] != b'.') {
+    if (value.@len() < 3 or value.[0] != b'1' or value.[1] != b'.') {
         return false;
     }
-    for (byte: value.&[2...value.len()].iter()) {
+    for (byte: value.&[2...value.@len()].iter()) {
         if (byte < b'0' or byte > b'9') {
             return false;
         }
@@ -220,10 +220,10 @@ fn is_encoding_continue(byte: u8) bool {
 
 // Validates the lexical shape of an XML declaration encoding value.
 fn is_encoding_value(value: &[u8]) bool {
-    if (value.len() == 0 or !is_encoding_start(value.[0])) {
+    if (value.@len() == 0 or !is_encoding_start(value.[0])) {
         return false;
     }
-    for (byte: value.&[1...value.len()].iter()) {
+    for (byte: value.&[1...value.@len()].iter()) {
         if (!is_encoding_continue(byte)) {
             return false;
         }
@@ -245,7 +245,7 @@ fn parse_declaration(text: &[u8], start: usize) ProcessingInstruction!Error {
         name: pi.target,
         raw: pi.raw,
         attributes_raw: body,
-        attributes_offset: start + pi.raw.len() - 2 - body.len(),
+        attributes_offset: start + pi.raw.@len() - 2 - body.@len(),
     }.attributes();
     let version = attrs..&.next().?;
     let .{ Some: version_attr } = version else {
@@ -307,7 +307,7 @@ impl &mut Reader {
 
         if (!self.started) {
             self.started = true;
-            let has_bom = self.source.len() >= 3
+            let has_bom = self.source.@len() >= 3
                 and self.source.[0] == 0xEF
                 and self.source.[1] == 0xBB
                 and self.source.[2] == 0xBF;
@@ -316,7 +316,7 @@ impl &mut Reader {
             }
         }
 
-        if (self.index >= self.source.len()) {
+        if (self.index >= self.source.@len()) {
             self.done = true;
             return .{ Ok: .None };
         }
@@ -324,7 +324,7 @@ impl &mut Reader {
         let text = self.source;
         let start = self.index;
         if (text.[start] != b'<') {
-            let end = find_byte(text, b'<', start).map_or(text.len(), [](pos: usize) usize {
+            let end = find_byte(text, b'<', start).map_or(text.@len(), [](pos: usize) usize {
                 return pos;
             });
             validate_text_body(text, start, end).?;
@@ -353,21 +353,21 @@ impl &mut Reader {
                     return .{ Err: err(.InvalidDeclaration, start) };
                 }
                 let pi = parse_declaration(text, start).?;
-                self.index = start + pi.raw.len();
+                self.index = start + pi.raw.@len();
                 return .{ Ok: .{ Some: .{ Declaration: pi } } };
             }
             if (is_xml_target_case_insensitive(text, target_start, target_stop)) {
                 return .{ Err: err(.InvalidDeclaration, target_start) };
             }
             let pi = parse_pi(text, start).?;
-            self.index = start + pi.raw.len();
+            self.index = start + pi.raw.@len();
             return .{ Ok: .{ Some: .{ ProcessingInstruction: pi } } };
         }
 
         if (starts_with_at(text, start, "<!DOCTYPE")) {
-            let end = find_doctype_end(text, start + "<!DOCTYPE".len()).?;
+            let end = find_doctype_end(text, start + "<!DOCTYPE".@len()).?;
             self.index = end + 1;
-            let raw = text.&[start + "<!DOCTYPE".len()...end];
+            let raw = text.&[start + "<!DOCTYPE".@len()...end];
             return .{ Ok: .{ Some: .{ Doctype: EncodedText.{ raw: raw } } } };
         }
 
@@ -378,7 +378,7 @@ impl &mut Reader {
             return .{ Ok: .{ Some: .{ End: name } } };
         }
 
-        if (start + 1 >= text.len()) {
+        if (start + 1 >= text.@len()) {
             return .{ Err: err(.UnexpectedEof, start) };
         }
         if (!starts_with_at(text, start, "<") or starts_with_at(text, start, "<!")) {

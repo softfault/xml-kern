@@ -33,7 +33,7 @@ impl &mut AttributeCursor {
 
         let text = self.raw;
         let mut index = skip_ws(text, self.index);
-        if (index >= text.len()) {
+        if (index >= text.@len()) {
             self.index = index;
             self.done = true;
             return .{ Ok: .None };
@@ -46,11 +46,11 @@ impl &mut AttributeCursor {
             return .{ kind: parse_err.kind, offset: parse_err.offset };
         }).?;
         index = skip_ws(text, name_stop);
-        if (index >= text.len() or text.[index] != b'=') {
+        if (index >= text.@len() or text.[index] != b'=') {
             return .{ Err: err(.InvalidAttribute, self.offset_base + index) };
         }
         index = skip_ws(text, index + 1);
-        if (index >= text.len() or (text.[index] != b'"' and text.[index] != b'\'')) {
+        if (index >= text.@len() or (text.[index] != b'"' and text.[index] != b'\'')) {
             return .{ Err: err(.InvalidAttribute, self.offset_base + index) };
         }
 
@@ -59,10 +59,10 @@ impl &mut AttributeCursor {
         index = value_start;
         // Attribute values are returned encoded; the cursor only has to find
         // the matching quote and leave entity decoding to `EncodedText`.
-        while (index < text.len() and text.[index] != quote) {
+        while (index < text.@len() and text.[index] != quote) {
             index += 1;
         }
-        if (index >= text.len()) {
+        if (index >= text.@len()) {
             return .{ Err: err(.InvalidAttribute, self.offset_base + value_start) };
         }
 
