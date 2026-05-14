@@ -107,8 +107,8 @@ fn print_stats(
 // Builds a deterministic generated input when no fixture path is provided.
 fn build_sample(alloc: &mut base.mem.alloc.Allocator) ?String {
     let mut out = string();
-    let row_bytes = TYPE_ROW.len() + COMMAND_ROW.len() + FEATURE_ROW.len() + EXTENSION_ROW.len();
-    let reserve_bytes = HEADER.len() + FOOTER.len() + SAMPLE_REPETITIONS * row_bytes;
+    let row_bytes = TYPE_ROW.@len() + COMMAND_ROW.@len() + FEATURE_ROW.@len() + EXTENSION_ROW.@len();
+    let reserve_bytes = HEADER.@len() + FOOTER.@len() + SAMPLE_REPETITIONS * row_bytes;
     let builder = out..&;
     let .{ Ok: _ } = builder.try_reserve(alloc, reserve_bytes) else return .None;
     let .{ Ok: _ } = builder.try_push_str(alloc, HEADER) else return .None;
