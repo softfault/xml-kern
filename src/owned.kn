@@ -58,9 +58,9 @@ fn clone_text(
 
 // Copies the element slices stored by an indexed node.
 fn clone_element(alloc: &mut Allocator, node: IndexedNode) OwnedElement!OwnedError {
-    let name = clone_text(alloc, node.element.name.raw, 0).!;
-    let raw = clone_text(alloc, node.element.raw, 0).!;
-    let attributes_raw = clone_text(alloc, node.element.attributes_raw, 0).!;
+    let name = clone_text(alloc, node.element.name.raw, 0).?;
+    let raw = clone_text(alloc, node.element.raw, 0).?;
+    let attributes_raw = clone_text(alloc, node.element.attributes_raw, 0).?;
     return .{ Ok: .{ name, raw, attributes_raw } };
 }
 
@@ -82,7 +82,7 @@ fn push_owned_node(
     alloc: &mut Allocator,
     source: IndexedNode,
 ) void!OwnedError {
-    let element = clone_element(alloc, source).!;
+    let element = clone_element(alloc, source).?;
     let node = OwnedNode.{
         element: element,
         parent: source.parent,
@@ -101,7 +101,7 @@ fn push_owned_node(
 impl &mut OwnedDocument {
     /// Releases all owned node strings and resets the document to empty.
     pub fn deinit(alloc: &mut Allocator) void {
-        let mut i = usize.{0};
+        let mut i = 0usize;
         while (i < self.nodes.len()) {
             let .{ Some: node } = self.nodes..&.get_ptr(i) else break;
             deinit_element(alloc, node.element..&);
@@ -168,13 +168,13 @@ impl &DocumentIndex {
     pub fn clone_owned(alloc: &mut Allocator) OwnedDocument!OwnedError {
         let mut out = OwnedDocument.{};
         out.root_index = self.root();
-        let mut i = usize.{0};
+        let mut i = 0usize;
         while (i < self.len()) {
             let .{ Some: node } = self.get(i) else {
                 out..&.deinit(alloc);
                 return .{ Err: owned_err(.OutOfMemory, 0) };
             };
-            push_owned_node(out..&, alloc, node).!;
+            push_owned_node(out..&, alloc, node).?;
             i += 1;
         }
         return .{ Ok: out };
@@ -184,7 +184,7 @@ impl &DocumentIndex {
 impl &[u8] {
     /// Builds an owned document tree by validating, indexing, then copying nodes.
     pub fn clone_owned_document(alloc: &mut Allocator) OwnedDocument!OwnedError {
-        let mut index = self.build_index(alloc).map_err(lift_index).!;
+        let mut index = self.build_index(alloc).map_err(lift_index).?;
         defer index..&.deinit(alloc);
         return index.&.clone_owned(alloc);
     }

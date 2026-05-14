@@ -1,6 +1,6 @@
 # xml-kern Benchmarks
 
-`examples/bench_xml.rn` measures the allocation-free reader, validation, and
+`examples/bench_xml.kn` measures the allocation-free reader, validation, and
 decode paths. By default it builds a generated Vulkan-like XML document in
 memory so benchmark runs stay self-contained. Pass a path to use a real corpus
 such as `vk.xml`.

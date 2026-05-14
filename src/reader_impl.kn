@@ -26,9 +26,9 @@ use ..bytes.{
 // Finds a tag terminator while ignoring `>` inside quoted attributes.
 fn find_tag_end(text: &[u8], start: usize) usize!Error {
     let mut index = start;
-    let mut quote = u8.{0};
+    let mut quote = 0u8;
     // Tag scanning is stateful because quoted attribute values may contain `>`.
-    while (index < #text) {
+    while (index < text.len()) {
         let byte = text.[index];
         if (quote != 0) {
             if (byte == quote) {
@@ -54,10 +54,10 @@ fn find_tag_end(text: &[u8], start: usize) usize!Error {
 // Finds the end of a doctype while honoring quoted text and internal subsets.
 fn find_doctype_end(text: &[u8], start: usize) usize!Error {
     let mut index = start;
-    let mut quote = u8.{0};
-    let mut subset_depth = 0;
+    let mut quote = 0u8;
+    let mut subset_depth = 0usize;
     // Doctype scanning tracks both quotes and internal subset bracket depth.
-    while (index < #text) {
+    while (index < text.len()) {
         let byte = text.[index];
         if (quote != 0) {
             if (byte == quote) {
@@ -72,20 +72,20 @@ fn find_doctype_end(text: &[u8], start: usize) usize!Error {
             continue;
         }
         if (byte == b'[') {
-            subset_depth += 1;
+            subset_depth += 1usize;
             index += 1;
             continue;
         }
         if (byte == b']') {
-            if (subset_depth > 0) {
-                subset_depth -= 1;
+            if (subset_depth > 0usize) {
+                subset_depth -= 1usize;
             }
             index += 1;
             continue;
         }
         // Internal subsets may contain `>` tokens; the declaration closes only
         // after the bracket depth returns to the outer doctype body.
-        if (byte == b'>' and subset_depth == 0) {
+        if (byte == b'>' and subset_depth == 0usize) {
             return .{ Ok: index };
         }
         index += 1;
@@ -113,7 +113,7 @@ fn is_xml_target_case_insensitive(
 // Empty element syntax is `<name .../>`, possibly with whitespace before `/`.
 fn is_empty_tag(raw_inside: &[u8]) bool {
     let trimmed = trim_right_ws(raw_inside);
-    return #trimmed > 0 and trimmed.[#trimmed - 1] == b'/';
+    return trimmed.len() > 0 and trimmed.[trimmed.len() - 1] == b'/';
 }
 
 // XML comments may not contain a double-hyphen sequence in their body.
@@ -155,14 +155,14 @@ fn element_from_raw(
     tag_end: usize,
 ) Element!Error {
     let name_start = tag_start + 1;
-    let name_stop = name_end(text, name_start).!;
+    let name_stop = name_end(text, name_start).?;
     let attr_start = name_stop;
-    let raw_inside = text.&[name_start .. tag_end];
+    let raw_inside = text.&[name_start...tag_end];
     let attr_end = if (is_empty_tag(raw_inside)) tag_end - 1 else tag_end;
     return .{ Ok: .{
-        name: Name.{ raw: text.&[name_start .. name_stop] },
-        raw: text.&[tag_start .. tag_end + 1],
-        attributes_raw: text.&[attr_start .. attr_end],
+        name: Name.{ raw: text.&[name_start...name_stop] },
+        raw: text.&[tag_start...tag_end + 1],
+        attributes_raw: text.&[attr_start...attr_end],
         attributes_offset: attr_start,
     } };
 }
@@ -170,33 +170,33 @@ fn element_from_raw(
 // Parses an end tag and returns the borrowed element name.
 fn parse_end(text: &[u8], tag_start: usize) Name!Error {
     let name_start = tag_start + 2;
-    let name_stop = name_end(text, name_start).!;
+    let name_stop = name_end(text, name_start).?;
     let index = skip_ws(text, name_stop);
-    if (index >= #text or text.[index] != b'>') {
+    if (index >= text.len() or text.[index] != b'>') {
         return .{ Err: err(.UnterminatedTag, tag_start) };
     }
-    return .{ Ok: Name.{ raw: text.&[name_start .. name_stop] } };
+    return .{ Ok: Name.{ raw: text.&[name_start...name_stop] } };
 }
 
 // Parses a processing instruction without declaration-specific validation.
 fn parse_pi(text: &[u8], start: usize) ProcessingInstruction!Error {
-    let end = find(text, "?>", start + 2).ok_or(err(.UnterminatedProcessingInstruction, start)).!;
+    let end = find(text, "?>", start + 2).ok_or(err(.UnterminatedProcessingInstruction, start)).?;
     let target_start = start + 2;
-    let target_stop = name_end(text, target_start).!;
+    let target_stop = name_end(text, target_start).?;
     let body_start = skip_ws(text, target_stop);
     return .{ Ok: .{
-        target: Name.{ raw: text.&[target_start .. target_stop] },
-        body: text.&[body_start .. end],
-        raw: text.&[start .. end + 2],
+        target: Name.{ raw: text.&[target_start...target_stop] },
+        body: text.&[body_start...end],
+        raw: text.&[start...end + 2],
     } };
 }
 
 // XML declarations accept version values of the form `1.<digits>`.
 fn is_version_value(value: &[u8]) bool {
-    if (#value < 3 or value.[0] != b'1' or value.[1] != b'.') {
+    if (value.len() < 3 or value.[0] != b'1' or value.[1] != b'.') {
         return false;
     }
-    for (byte: value.&[2 .. #value].iter()) {
+    for (byte: value.&[2...value.len()].iter()) {
         if (byte < b'0' or byte > b'9') {
             return false;
         }
@@ -220,10 +220,10 @@ fn is_encoding_continue(byte: u8) bool {
 
 // Validates the lexical shape of an XML declaration encoding value.
 fn is_encoding_value(value: &[u8]) bool {
-    if (#value == 0 or !is_encoding_start(value.[0])) {
+    if (value.len() == 0 or !is_encoding_start(value.[0])) {
         return false;
     }
-    for (byte: value.&[1 .. #value].iter()) {
+    for (byte: value.&[1...value.len()].iter()) {
         if (!is_encoding_continue(byte)) {
             return false;
         }
@@ -235,7 +235,7 @@ fn is_encoding_value(value: &[u8]) bool {
 // declaration-specific attribute order: version, optional encoding, optional
 // standalone. Other processing instructions are handled by `parse_pi`.
 fn parse_declaration(text: &[u8], start: usize) ProcessingInstruction!Error {
-    let pi = parse_pi(text, start).!;
+    let pi = parse_pi(text, start).?;
     if (!pi.target.eq("xml")) {
         return .{ Err: err(.InvalidDeclaration, start + 2) };
     }
@@ -245,9 +245,9 @@ fn parse_declaration(text: &[u8], start: usize) ProcessingInstruction!Error {
         name: pi.target,
         raw: pi.raw,
         attributes_raw: body,
-        attributes_offset: start + #pi.raw - 2 - #body,
+        attributes_offset: start + pi.raw.len() - 2 - body.len(),
     }.attributes();
-    let version = attrs..&.next().!;
+    let version = attrs..&.next().?;
     let .{ Some: version_attr } = version else {
         return .{ Err: err(.InvalidDeclaration, start) };
     };
@@ -260,7 +260,7 @@ fn parse_declaration(text: &[u8], start: usize) ProcessingInstruction!Error {
     let mut seen_encoding = false;
     let mut seen_standalone = false;
     while (true) {
-        let next = attrs..&.next().!;
+        let next = attrs..&.next().?;
         let .{ Some: attr } = next else break;
         if (attr.name.eq("encoding")) {
             if (seen_encoding or seen_standalone or !is_encoding_value(attr.value.raw)) {
@@ -307,7 +307,7 @@ impl &mut Reader {
 
         if (!self.started) {
             self.started = true;
-            let has_bom = #self.source >= 3
+            let has_bom = self.source.len() >= 3
                 and self.source.[0] == 0xEF
                 and self.source.[1] == 0xBB
                 and self.source.[2] == 0xBF;
@@ -316,7 +316,7 @@ impl &mut Reader {
             }
         }
 
-        if (self.index >= #self.source) {
+        if (self.index >= self.source.len()) {
             self.done = true;
             return .{ Ok: .None };
         }
@@ -324,71 +324,71 @@ impl &mut Reader {
         let text = self.source;
         let start = self.index;
         if (text.[start] != b'<') {
-            let end = find_byte(text, b'<', start).map_or(#text, [](pos: usize) usize {
+            let end = find_byte(text, b'<', start).map_or(text.len(), [](pos: usize) usize {
                 return pos;
             });
-            validate_text_body(text, start, end).!;
+            validate_text_body(text, start, end).?;
             self.index = end;
-            return .{ Ok: .{ Some: .{ Text: EncodedText.{ raw: text.&[start .. end] } } } };
+            return .{ Ok: .{ Some: .{ Text: EncodedText.{ raw: text.&[start...end] } } } };
         }
 
         if (starts_with_at(text, start, "<!--")) {
-            let end = find(text, "-->", start + 4).ok_or(err(.UnterminatedComment, start)).!;
-            validate_comment_body(text, start + 4, end).!;
+            let end = find(text, "-->", start + 4).ok_or(err(.UnterminatedComment, start)).?;
+            validate_comment_body(text, start + 4, end).?;
             self.index = end + 3;
-            return .{ Ok: .{ Some: .{ Comment: EncodedText.{ raw: text.&[start + 4 .. end] } } } };
+            return .{ Ok: .{ Some: .{ Comment: EncodedText.{ raw: text.&[start + 4...end] } } } };
         }
 
         if (starts_with_at(text, start, "<![CDATA[")) {
-            let end = find(text, "]]>", start + 9).ok_or(err(.UnterminatedCData, start)).!;
+            let end = find(text, "]]>", start + 9).ok_or(err(.UnterminatedCData, start)).?;
             self.index = end + 3;
-            return .{ Ok: .{ Some: .{ CData: EncodedText.{ raw: text.&[start + 9 .. end] } } } };
+            return .{ Ok: .{ Some: .{ CData: EncodedText.{ raw: text.&[start + 9...end] } } } };
         }
 
         if (starts_with_at(text, start, "<?")) {
             let target_start = start + 2;
-            let target_stop = name_end(text, target_start).!;
+            let target_stop = name_end(text, target_start).?;
             if (name_eq(text, target_start, target_stop, "xml")) {
                 if (start > 3) {
                     return .{ Err: err(.InvalidDeclaration, start) };
                 }
-                let pi = parse_declaration(text, start).!;
-                self.index = start + #pi.raw;
+                let pi = parse_declaration(text, start).?;
+                self.index = start + pi.raw.len();
                 return .{ Ok: .{ Some: .{ Declaration: pi } } };
             }
             if (is_xml_target_case_insensitive(text, target_start, target_stop)) {
                 return .{ Err: err(.InvalidDeclaration, target_start) };
             }
-            let pi = parse_pi(text, start).!;
-            self.index = start + #pi.raw;
+            let pi = parse_pi(text, start).?;
+            self.index = start + pi.raw.len();
             return .{ Ok: .{ Some: .{ ProcessingInstruction: pi } } };
         }
 
         if (starts_with_at(text, start, "<!DOCTYPE")) {
-            let end = find_doctype_end(text, start + #"<!DOCTYPE").!;
+            let end = find_doctype_end(text, start + "<!DOCTYPE".len()).?;
             self.index = end + 1;
-            let raw = text.&[start + #"<!DOCTYPE" .. end];
+            let raw = text.&[start + "<!DOCTYPE".len()...end];
             return .{ Ok: .{ Some: .{ Doctype: EncodedText.{ raw: raw } } } };
         }
 
         if (starts_with_at(text, start, "</")) {
-            let name = parse_end(text, start).!;
-            let end = find_tag_end(text, start + 2).!;
+            let name = parse_end(text, start).?;
+            let end = find_tag_end(text, start + 2).?;
             self.index = end + 1;
             return .{ Ok: .{ Some: .{ End: name } } };
         }
 
-        if (start + 1 >= #text) {
+        if (start + 1 >= text.len()) {
             return .{ Err: err(.UnexpectedEof, start) };
         }
         if (!starts_with_at(text, start, "<") or starts_with_at(text, start, "<!")) {
             return .{ Err: err(.UnexpectedByte, start) };
         }
 
-        let end = find_tag_end(text, start + 1).!;
-        let element = element_from_raw(text, start, end).!;
+        let end = find_tag_end(text, start + 1).?;
+        let element = element_from_raw(text, start, end).?;
         self.index = end + 1;
-        if (is_empty_tag(text.&[start + 1 .. end])) {
+        if (is_empty_tag(text.&[start + 1...end])) {
             return .{ Ok: .{ Some: .{ Empty: element } } };
         }
         return .{ Ok: .{ Some: .{ Start: element } } };

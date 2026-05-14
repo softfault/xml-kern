@@ -46,7 +46,7 @@ impl &mut Reader {
     /// Returns the next non-ignorable event for structured readers.
     pub fn next_significant() ?Event!ExpectError {
         while (true) {
-            let next = self.next().map_err(lift_parse).!;
+            let next = self.next().map_err(lift_parse).?;
             let .{ Some: event } = next else return .{ Ok: .None };
             if (!is_ignorable(event)) {
                 return .{ Ok: .{ Some: event } };
@@ -57,7 +57,7 @@ impl &mut Reader {
     /// Consumes a start element with the expected raw name.
     pub fn expect_start(name: &[u8]) Element!ExpectError {
         let offset = self.offset();
-        let next = self.next_significant().!;
+        let next = self.next_significant().?;
         let .{ Some: event } = next else {
             return .{ Err: expect_err(.UnexpectedEof, offset) };
         };
@@ -75,7 +75,7 @@ impl &mut Reader {
     /// Consumes an empty element with the expected raw name.
     pub fn expect_empty(name: &[u8]) Element!ExpectError {
         let offset = self.offset();
-        let next = self.next_significant().!;
+        let next = self.next_significant().?;
         let .{ Some: event } = next else {
             return .{ Err: expect_err(.UnexpectedEof, offset) };
         };
@@ -93,7 +93,7 @@ impl &mut Reader {
     /// Consumes an end element with the expected raw name.
     pub fn expect_end(name: &[u8]) Name!ExpectError {
         let offset = self.offset();
-        let next = self.next_significant().!;
+        let next = self.next_significant().?;
         let .{ Some: event } = next else {
             return .{ Err: expect_err(.UnexpectedEof, offset) };
         };

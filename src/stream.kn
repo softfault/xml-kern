@@ -54,7 +54,7 @@ impl &mut FilteredReader : EventStream {
     /// Returns the next event accepted by the filter predicate.
     pub fn next_event() ?Event!Error {
         while (true) {
-            let next = self.inner..&.next().!;
+            let next = self.inner..&.next().?;
             let .{ Some: event } = next else return .{ Ok: .None };
             if (self.pred(event)) {
                 return .{ Ok: .{ Some: event } };
@@ -74,7 +74,7 @@ impl[T] &mut MappedReader[T] {
     /// Returns the next mapped value accepted by the mapping function.
     pub fn next() ?T!Error {
         while (true) {
-            let next = self.inner..&.next().!;
+            let next = self.inner..&.next().?;
             let .{ Some: event } = next else return .{ Ok: .None };
             let mapped = self.map_event(event);
             let .{ Some: value } = mapped else continue;
@@ -147,9 +147,9 @@ impl &mut EventStream {
     pub fn drain_into(sink: &mut EventSink) usize!Error {
         let mut count = 0;
         while (true) {
-            let next = self.next_event().!;
+            let next = self.next_event().?;
             let .{ Some: event } = next else return .{ Ok: count };
-            if (!sink.on_event(event).!) {
+            if (!sink.on_event(event).?) {
                 return .{ Ok: count };
             }
             count += 1;

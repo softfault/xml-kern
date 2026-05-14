@@ -62,20 +62,20 @@ fn named_entity(text: &[u8]) ?u8 {
 // ampersand has already been stripped. The function validates digit shape,
 // Unicode range, and surrogate exclusion before the caller encodes UTF-8.
 fn parse_char_ref(text: &[u8], offset: usize) u32!DecodeError {
-    if (#text == 0 or text.[0] != b'#') {
+    if (text.len() == 0 or text.[0] != b'#') {
         return .{ Err: decode_err(.InvalidReference, offset) };
     }
 
-    let hex = #text >= 2 and (text.[1] == b'x' or text.[1] == b'X');
+    let hex = text.len() >= 2 and (text.[1] == b'x' or text.[1] == b'X');
     let mut index = if (hex) 2 else 1;
-    if (index >= #text) {
+    if (index >= text.len()) {
         return .{ Err: decode_err(.InvalidReference, offset) };
     }
 
-    let mut value = u32.{0};
+    let mut value = 0u32;
     // Character references are numeric accumulators, so the loop must track
     // both source offset and overflow boundary.
-    while (index < #text) {
+    while (index < text.len()) {
         let digit = if (hex) hex_value(text.[index]) else dec_value(text.[index]);
         let .{ Some: d } = digit else {
             return .{ Err: decode_err(.InvalidReference, offset + index) };
@@ -96,10 +96,10 @@ fn parse_char_ref(text: &[u8], offset: usize) u32!DecodeError {
 fn reference_end(text: &[u8], amp: usize) usize!DecodeError {
     let mut index = amp + 1;
     // The returned semicolon offset is used in diagnostics and slice bounds.
-    while (index < #text and text.[index] != b';') {
+    while (index < text.len() and text.[index] != b';') {
         index += 1;
     }
-    if (index >= #text) {
+    if (index >= text.len()) {
         return .{ Err: decode_err(.UnterminatedReference, amp) };
     }
     return .{ Ok: index };
@@ -112,7 +112,7 @@ impl EncodedText {
         // multibyte UTF-8 continuation sequence.
         let mut index = 0;
         // Keep byte offsets explicit for the later decode/diagnostic path.
-        while (index < #self.raw) {
+        while (index < self.raw.len()) {
             if (self.raw.[index] == b'&') {
                 return true;
             }
@@ -129,17 +129,17 @@ impl EncodedText {
         let mut index = 0;
         // Decoded size depends on entity boundaries, so index advancement jumps
         // over complete references rather than visiting every byte uniformly.
-        while (index < #self.raw) {
+        while (index < self.raw.len()) {
             if (self.raw.[index] != b'&') {
                 size += 1;
                 index += 1;
                 continue;
             }
 
-            let end = reference_end(self.raw, index).!;
-            let body = self.raw.&[index + 1 .. end];
-            if (#body > 0 and body.[0] == b'#') {
-                let codepoint = parse_char_ref(body, index + 1).!;
+            let end = reference_end(self.raw, index).?;
+            let body = self.raw.&[index + 1...end];
+            if (body.len() > 0 and body.[0] == b'#') {
+                let codepoint = parse_char_ref(body, index + 1).?;
                 let width = match (utf8.len(codepoint)) {
                     .{ Ok: value } => value,
                     .{ Err: err } => return .{ Err: decode_utf8_err(err, index + 1) },
@@ -163,9 +163,9 @@ impl EncodedText {
         let mut written = 0;
         let mut index = 0;
         // The source index and output index intentionally advance separately.
-        while (index < #self.raw) {
+        while (index < self.raw.len()) {
             if (self.raw.[index] != b'&') {
-                if (written >= #out) {
+                if (written >= out.len()) {
                     return .{ Err: decode_err(.BufferTooSmall, index) };
                 }
                 out.[written] = self.raw.[index];
@@ -174,10 +174,10 @@ impl EncodedText {
                 continue;
             }
 
-            let end = reference_end(self.raw, index).!;
-            let body = self.raw.&[index + 1 .. end];
-            if (#body > 0 and body.[0] == b'#') {
-                let codepoint = parse_char_ref(body, index + 1).!;
+            let end = reference_end(self.raw, index).?;
+            let body = self.raw.&[index + 1...end];
+            if (body.len() > 0 and body.[0] == b'#') {
+                let codepoint = parse_char_ref(body, index + 1).?;
                 written = match (utf8.write_at(codepoint, out, written)) {
                     .{ Ok: value } => value,
                     .{ Err: err } => return .{ Err: decode_utf8_err(err, index + 1) },
@@ -186,7 +186,7 @@ impl EncodedText {
                 let .{ Some: value } = named_entity(body) else {
                     return .{ Err: decode_err(.UnknownEntity, index) };
                 };
-                if (written >= #out) {
+                if (written >= out.len()) {
                     return .{ Err: decode_err(.BufferTooSmall, index) };
                 }
                 out.[written] = value;
@@ -199,7 +199,7 @@ impl EncodedText {
 
     /// Clones decoded text into an owned string.
     pub fn clone_decoded(alloc: &mut Allocator) String!DecodeError {
-        let size = self.decoded_size().!;
+        let size = self.decoded_size().?;
         let mut out = string();
         let bytes = match (out..&.try_append_uninit_exact(alloc, size)) {
             .{ Ok: value } => value,

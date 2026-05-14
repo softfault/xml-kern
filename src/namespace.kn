@@ -14,7 +14,7 @@ use ..{
 
 // Returns the first namespace separator in a lexical XML name.
 fn colon_at(raw: &[u8]) ?usize {
-    let mut i = usize.{0};
+    let mut i = 0usize;
     for (byte: raw.iter()) {
         if (byte == b':') {
             return .{ Some: i };
@@ -28,8 +28,8 @@ fn colon_at(raw: &[u8]) ?usize {
 fn qualified(raw: &[u8]) QualifiedName {
     match (colon_at(raw)) {
         .{ Some: index } => return .{
-            prefix: .{ Some: raw.&[0 .. index] },
-            local: raw.&[index + 1 .. #raw],
+            prefix: .{ Some: raw.&[0...index] },
+            local: raw.&[index + 1...raw.len()],
         },
         .None => return .{ prefix: .None, local: raw },
     }
@@ -73,7 +73,7 @@ impl &Attribute {
 
         let qname = self.name.&.qualified();
         let .{ Some: prefix } = qname.prefix else return .None;
-        if (prefix == "xmlns" and #qname.local > 0) {
+        if (prefix == "xmlns" and qname.local.len() > 0) {
             let binding = NamespaceBinding.{
                 prefix: qname.local,
                 uri: self.value,
@@ -149,7 +149,7 @@ impl &DocumentIndex {
                     }
                 },
                 .None => {
-                    if (#uri == 0 and name.local == local) {
+                    if (uri.len() == 0 and name.local == local) {
                         return .{ Some: node_index };
                     }
                 },

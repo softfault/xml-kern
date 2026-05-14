@@ -33,7 +33,7 @@ impl &mut AttributeCursor {
 
         let text = self.raw;
         let mut index = skip_ws(text, self.index);
-        if (index >= #text) {
+        if (index >= text.len()) {
             self.index = index;
             self.done = true;
             return .{ Ok: .None };
@@ -44,13 +44,13 @@ impl &mut AttributeCursor {
         let name_start = index;
         let name_stop = name_end(text, name_start).map_err([](parse_err: Error) Error {
             return .{ kind: parse_err.kind, offset: parse_err.offset };
-        }).!;
+        }).?;
         index = skip_ws(text, name_stop);
-        if (index >= #text or text.[index] != b'=') {
+        if (index >= text.len() or text.[index] != b'=') {
             return .{ Err: err(.InvalidAttribute, self.offset_base + index) };
         }
         index = skip_ws(text, index + 1);
-        if (index >= #text or (text.[index] != b'"' and text.[index] != b'\'')) {
+        if (index >= text.len() or (text.[index] != b'"' and text.[index] != b'\'')) {
             return .{ Err: err(.InvalidAttribute, self.offset_base + index) };
         }
 
@@ -59,19 +59,19 @@ impl &mut AttributeCursor {
         index = value_start;
         // Attribute values are returned encoded; the cursor only has to find
         // the matching quote and leave entity decoding to `EncodedText`.
-        while (index < #text and text.[index] != quote) {
+        while (index < text.len() and text.[index] != quote) {
             index += 1;
         }
-        if (index >= #text) {
+        if (index >= text.len()) {
             return .{ Err: err(.InvalidAttribute, self.offset_base + value_start) };
         }
 
         let raw_stop = index + 1;
         self.index = raw_stop;
         return .{ Ok: .{ Some: Attribute.{
-            name: Name.{ raw: text.&[name_start .. name_stop] },
-            value: EncodedText.{ raw: text.&[value_start .. index] },
-            raw: text.&[name_start .. raw_stop],
+            name: Name.{ raw: text.&[name_start...name_stop] },
+            value: EncodedText.{ raw: text.&[value_start...index] },
+            raw: text.&[name_start...raw_stop],
         } } };
     }
 }

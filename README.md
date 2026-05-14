@@ -29,7 +29,7 @@ the repository name is `xml-kern`.
 
 ```kern
 use base.mem.alloc.{Allocator, gpa};
-use sys.mem.page;
+use std.mem.Page;
 use xml.reader;
 
 enum AppError {
@@ -39,14 +39,14 @@ enum AppError {
 
 fn read_config() void!xml.ExpectError {
     let r = reader("<config><name>kern</name></config>")..&;
-    _ = r.expect_start("config").!;
-    _ = r.expect_start("name").!;
+    _ = r.expect_start("config").?;
+    _ = r.expect_start("name").?;
     return .{ Ok: {} };
 }
 
 fn load_document(gpa: &mut Allocator) void!xml.IndexError {
     let source = "<root><item/></root>";
-    let index = source.build_index(gpa).!..&;
+    let index = source.build_index(gpa).?..&;
     defer index.deinit(gpa);
     return .{ Ok: {} };
 }
@@ -54,15 +54,15 @@ fn load_document(gpa: &mut Allocator) void!xml.IndexError {
 fn app(gpa: &mut Allocator) void!AppError {
     read_config()
         .map_err([](err: xml.ExpectError) AppError { return .{ ReadConfig: err }; })
-        .!;
+        .?;
     load_document(gpa)
         .map_err([](err: xml.IndexError) AppError { return .{ LoadDocument: err }; })
-        .!;
+        .?;
     return .{ Ok: {} };
 }
 
 fn main() i32 {
-    let page = page()..&;
+    let page = Page.{}..&;
     let gpa = gpa().on(page)..&;
     defer gpa.deinit();
 
@@ -96,7 +96,7 @@ lookup through `DocumentIndex.resolved_name()`, `namespace_for()`, and
 
 ## Benchmarks
 
-`examples/bench_xml.rn` measures parse, validate, and decode paths over a
+`examples/bench_xml.kn` measures parse, validate, and decode paths over a
 generated Vulkan-like document or an external XML file such as `vk.xml`.
 See `bench/README.md` for details.
 

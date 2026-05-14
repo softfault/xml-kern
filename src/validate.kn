@@ -55,7 +55,7 @@ fn has_duplicate_attributes(
     defer seen.deinit(alloc);
     let mut cursor = element.attributes();
     while (true) {
-        let next = cursor..&.next().map_err(lift_parse).!;
+        let next = cursor..&.next().map_err(lift_parse).?;
         let .{ Some: attr } = next else break;
         if (seen.get_ptr(attr.name.raw).is_some()) {
             return .{ Ok: true };
@@ -79,37 +79,37 @@ impl &mut Reader {
 
         while (true) {
             let event_start = self.offset();
-            let next = self.next().map_err(lift_parse).!;
+            let next = self.next().map_err(lift_parse).?;
             let .{ Some: event } = next else break;
             match (event) {
                 .{ Start: element } => {
-                    if (has_duplicate_attributes(element, alloc, event_start).!) {
+                    if (has_duplicate_attributes(element, alloc, event_start).?) {
                         return .{ Err: validate_err(.DuplicateAttribute, event_start) };
                     }
                     if (closed_root and !is_ignorable_text(element.raw)) {
-                        let offset = self.index - #element.raw;
+                        let offset = self.index - element.raw.len();
                         return .{ Err: validate_err(.MultipleRoots, offset) };
                     }
                     if (stack.is_empty()) {
                         if (saw_root) {
-                            let offset = self.index - #element.raw;
+                            let offset = self.index - element.raw.len();
                             return .{ Err: validate_err(.MultipleRoots, offset) };
                         }
                         saw_root = true;
                     }
-                    let offset = self.index - #element.raw;
+                    let offset = self.index - element.raw.len();
                     match (stack.try_push(alloc, element.name)) {
                         .{ Ok: _ } => {},
                         .{ Err: err } => return .{ Err: validate_alloc_err(err, offset) },
                     }
                 },
                 .{ Empty: element } => {
-                    if (has_duplicate_attributes(element, alloc, event_start).!) {
+                    if (has_duplicate_attributes(element, alloc, event_start).?) {
                         return .{ Err: validate_err(.DuplicateAttribute, event_start) };
                     }
                     if (stack.is_empty()) {
                         if (saw_root) {
-                            let offset = self.index - #element.raw;
+                            let offset = self.index - element.raw.len();
                             return .{ Err: validate_err(.MultipleRoots, offset) };
                         }
                         saw_root = true;
@@ -129,7 +129,7 @@ impl &mut Reader {
                 },
                 .{ Text: text } => {
                     if (closed_root and !is_ignorable_text(text.raw)) {
-                        let offset = self.index - #text.raw;
+                        let offset = self.index - text.raw.len();
                         return .{ Err: validate_err(.MultipleRoots, offset) };
                     }
                 },

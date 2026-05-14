@@ -1,9 +1,9 @@
 //! Fixture-heavy integration tests for realistic XML input.
 
 use base.mem.alloc.gpa;
-use base.test;
+use std.mem.Page;
+use base.test.{report};
 use std.io;
-use sys.mem.page;
 use xml.{Event, reader};
 
 const FIXTURE =
@@ -46,8 +46,8 @@ struct Counts {
 
 // Counts namespace declaration attributes on one element.
 fn count_namespace_attrs(element: xml.Element) usize {
-    let t = test.report(io.stderr())..&;
-    let mut total = usize.{0};
+    let t = report(io.stderr())..&;
+    let mut total = 0usize;
     let mut attrs = element.attributes();
     while (true) {
         let next = attrs
@@ -77,7 +77,7 @@ fn count_event(counts: &mut Counts, event: Event) void {
             counts.namespace_decls += count_namespace_attrs(element);
         },
         .{ End: _ } => counts.ends += 1,
-        .{ Text: text } => if (#text.raw > 0) counts.text += 1,
+        .{ Text: text } => if (text.raw.len() > 0) counts.text += 1,
         .{ Comment: _ } => counts.comments += 1,
         .{ CData: _ } => counts.cdata += 1,
         .{ ProcessingInstruction: _ } => counts.processing += 1,
@@ -86,7 +86,7 @@ fn count_event(counts: &mut Counts, event: Event) void {
 
 // Reads the full fixture and returns aggregate event counts.
 fn read_fixture_counts() Counts {
-    let t = test.report(io.stderr())..&;
+    let t = report(io.stderr())..&;
     let mut counts = Counts.{};
     let mut r = reader(FIXTURE);
     while (true) {
@@ -102,7 +102,7 @@ fn read_fixture_counts() Counts {
 
 // Verifies the fixture exercises the expected event mix.
 fn check_large_fixture_reader() void {
-    let t = test.report(io.stderr())..&;
+    let t = report(io.stderr())..&;
     let counts = read_fixture_counts();
     counts.declarations
         .should()
@@ -148,8 +148,8 @@ fn check_large_fixture_reader() void {
 
 // Verifies validation succeeds on the larger fixture.
 fn check_large_fixture_validation() void {
-    let t = test.report(io.stderr())..&;
-    let page = page()..&;
+    let t = report(io.stderr())..&;
+    let page = Page.{}..&;
     let gpa = gpa().on(page)..&;
     FIXTURE.validate(gpa)
         .should_ok()
@@ -158,8 +158,8 @@ fn check_large_fixture_validation() void {
 
 // Verifies rendering can replay the fixture byte-for-byte.
 fn check_large_fixture_round_trip() void {
-    let t = test.report(io.stderr())..&;
-    let page = page()..&;
+    let t = report(io.stderr())..&;
+    let page = Page.{}..&;
     let gpa = gpa().on(page)..&;
     let mut out = base.coll.string();
     defer out..&.deinit(gpa);
@@ -174,7 +174,8 @@ fn check_large_fixture_round_trip() void {
 }
 
 // Test entry point for the fixture suite.
-fn main() i32 {
+#[test]
+fn fixtures() i32 {
     check_large_fixture_reader();
     check_large_fixture_validation();
     check_large_fixture_round_trip();

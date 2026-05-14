@@ -12,7 +12,7 @@
 //! ```kern
 //! fn read_first() void!xml.Error {
 //!     let r = xml.reader("<root><leaf/></root>")..&;
-//!     let .{ Some: event } = r.next().! else return .{ Ok: {} };
+//!     let .{ Some: event } = r.next().? else return .{ Ok: {} };
 //!     _ = event;
 //!     return .{ Ok: {} };
 //! }
@@ -26,7 +26,7 @@
 //! ```kern
 //! fn read_config() void!xml.ExpectError {
 //!     let r = xml.reader("<config><name>kern</name></config>")..&;
-//!     let root = r.expect_start("config").!;
+//!     let root = r.expect_start("config").?;
 //!     _ = root;
 //!     return .{ Ok: {} };
 //! }
@@ -39,7 +39,7 @@
 //! ```kern
 //! fn load_index(gpa: &mut base.mem.alloc.Allocator) void!xml.IndexError {
 //!     let source = "<root><item/></root>";
-//!     let index = source.build_index(gpa).!..&;
+//!     let index = source.build_index(gpa).?..&;
 //!     defer index.deinit(gpa);
 //!     return .{ Ok: {} };
 //! }
@@ -357,8 +357,8 @@ impl &[u8] {
     pub fn location(offset: usize) Location {
         let mut line = 1;
         let mut column = 1;
-        let limit = if (offset < #self) offset else #self;
-        for (byte: self.&[0 .. limit].iter()) {
+        let limit = if (offset < self.len()) offset else self.len();
+        for (byte: self.&[0...limit].iter()) {
             if (byte == b'\n') {
                 line += 1;
                 column = 1;
@@ -535,7 +535,7 @@ impl &OwnedError : Formatable {
 impl Name {
     /// Returns `true` when the name slice is empty.
     pub fn is_empty() bool {
-        return #self.raw == 0;
+        return self.raw.len() == 0;
     }
 
     /// Compares the borrowed name bytes with `text`.
