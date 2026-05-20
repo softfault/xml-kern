@@ -140,7 +140,7 @@ fn expect_prefix_errors(
     complete_events: usize,
 ) void {
     let t = report(io.stderr())..&;
-    for (split: min_len...source.@len()) {
+    for split in min_len...source.@len() {
         let mut r = reader(source.&[0...split]);
         _ = r
             ..&.next()
@@ -149,7 +149,7 @@ fn expect_prefix_errors(
     }
 
     let mut complete = reader(source);
-    for (_: 0usize...complete_events) {
+    for _ in 0usize...complete_events {
         _ = complete
             ..&.next()
             .should_ok()

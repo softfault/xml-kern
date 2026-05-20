@@ -196,7 +196,7 @@ fn is_version_value(value: &[u8]) bool {
     if (value.@len() < 3 or value.[0] != b'1' or value.[1] != b'.') {
         return false;
     }
-    for (byte: value.&[2...value.@len()].iter()) {
+    for byte in value.&[2...value.@len()].iter() {
         if (byte < b'0' or byte > b'9') {
             return false;
         }
@@ -223,7 +223,7 @@ fn is_encoding_value(value: &[u8]) bool {
     if (value.@len() == 0 or !is_encoding_start(value.[0])) {
         return false;
     }
-    for (byte: value.&[1...value.@len()].iter()) {
+    for byte in value.&[1...value.@len()].iter() {
         if (!is_encoding_continue(byte)) {
             return false;
         }

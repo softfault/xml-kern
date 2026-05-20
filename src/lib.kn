@@ -45,7 +45,7 @@
 //! }
 //! ```
 
-use base.io.{Formatable, Write};
+use base.io.{FormatSpec, Formatable, Write};
 use base.coll.List;
 
 mod bytes;
@@ -358,7 +358,7 @@ impl &[u8] {
         let mut line = 1;
         let mut column = 1;
         let limit = if (offset < self.@len()) offset else self.@len();
-        for (byte: self.&[0...limit].iter()) {
+        for byte in self.&[0...limit].iter() {
             if (byte == b'\n') {
                 line += 1;
                 column = 1;
@@ -372,7 +372,8 @@ impl &[u8] {
 
 impl &ErrorKind : Formatable {
     /// Writes a human-readable tokenizer error category.
-    pub fn write_to(writer: &mut Write) void {
+    pub fn write_fmt(spec: FormatSpec, writer: &mut Write) void {
+        _ = spec;
         match (self.*) {
             .UnexpectedEof => _ = writer.write("unexpected end of file"),
             .UnexpectedByte => _ = writer.write("unexpected byte"),
@@ -394,7 +395,8 @@ impl &ErrorKind : Formatable {
 
 impl &Error : Formatable {
     /// Writes a human-readable tokenizer error and byte offset.
-    pub fn write_to(writer: &mut Write) void {
+    pub fn write_fmt(spec: FormatSpec, writer: &mut Write) void {
+        _ = spec;
         self.kind.&.write_to(writer);
         _ = writer.write(" at byte ");
         self.offset.&.write_to(writer);
@@ -403,7 +405,8 @@ impl &Error : Formatable {
 
 impl &DecodeErrorKind : Formatable {
     /// Writes a human-readable decode error category.
-    pub fn write_to(writer: &mut Write) void {
+    pub fn write_fmt(spec: FormatSpec, writer: &mut Write) void {
+        _ = spec;
         match (self.*) {
             .UnknownEntity => _ = writer.write("unknown XML entity"),
             .InvalidReference => _ = writer.write("invalid XML character reference"),
@@ -418,7 +421,8 @@ impl &DecodeErrorKind : Formatable {
 
 impl &DecodeError : Formatable {
     /// Writes a human-readable decode error and byte offset.
-    pub fn write_to(writer: &mut Write) void {
+    pub fn write_fmt(spec: FormatSpec, writer: &mut Write) void {
+        _ = spec;
         self.kind.&.write_to(writer);
         _ = writer.write(" at byte ");
         self.offset.&.write_to(writer);
@@ -427,7 +431,8 @@ impl &DecodeError : Formatable {
 
 impl &ExpectErrorKind : Formatable {
     /// Writes a human-readable expect-combinator error category.
-    pub fn write_to(writer: &mut Write) void {
+    pub fn write_fmt(spec: FormatSpec, writer: &mut Write) void {
+        _ = spec;
         match (self.*) {
             .{ Parse: kind } => kind.&.write_to(writer),
             .UnexpectedEof => _ = writer.write("unexpected end of XML stream"),
@@ -439,7 +444,8 @@ impl &ExpectErrorKind : Formatable {
 
 impl &ExpectError : Formatable {
     /// Writes a human-readable expect-combinator error and byte offset.
-    pub fn write_to(writer: &mut Write) void {
+    pub fn write_fmt(spec: FormatSpec, writer: &mut Write) void {
+        _ = spec;
         self.kind.&.write_to(writer);
         _ = writer.write(" at byte ");
         self.offset.&.write_to(writer);
@@ -448,7 +454,8 @@ impl &ExpectError : Formatable {
 
 impl &ValidateErrorKind : Formatable {
     /// Writes a human-readable validation error category.
-    pub fn write_to(writer: &mut Write) void {
+    pub fn write_fmt(spec: FormatSpec, writer: &mut Write) void {
+        _ = spec;
         match (self.*) {
             .{ Parse: kind } => kind.&.write_to(writer),
             .CapacityOverflow => _ = writer.write("capacity overflow"),
@@ -464,7 +471,8 @@ impl &ValidateErrorKind : Formatable {
 
 impl &ValidateError : Formatable {
     /// Writes a human-readable validation error and byte offset.
-    pub fn write_to(writer: &mut Write) void {
+    pub fn write_fmt(spec: FormatSpec, writer: &mut Write) void {
+        _ = spec;
         self.kind.&.write_to(writer);
         _ = writer.write(" at byte ");
         self.offset.&.write_to(writer);
@@ -473,7 +481,8 @@ impl &ValidateError : Formatable {
 
 impl &IndexErrorKind : Formatable {
     /// Writes a human-readable index construction error category.
-    pub fn write_to(writer: &mut Write) void {
+    pub fn write_fmt(spec: FormatSpec, writer: &mut Write) void {
+        _ = spec;
         match (self.*) {
             .{ Parse: kind } => kind.&.write_to(writer),
             .{ Validate: kind } => kind.&.write_to(writer),
@@ -485,7 +494,8 @@ impl &IndexErrorKind : Formatable {
 
 impl &IndexError : Formatable {
     /// Writes a human-readable index construction error and byte offset.
-    pub fn write_to(writer: &mut Write) void {
+    pub fn write_fmt(spec: FormatSpec, writer: &mut Write) void {
+        _ = spec;
         self.kind.&.write_to(writer);
         _ = writer.write(" at byte ");
         self.offset.&.write_to(writer);
@@ -494,7 +504,8 @@ impl &IndexError : Formatable {
 
 impl &RenderErrorKind : Formatable {
     /// Writes a human-readable rendering error category.
-    pub fn write_to(writer: &mut Write) void {
+    pub fn write_fmt(spec: FormatSpec, writer: &mut Write) void {
+        _ = spec;
         match (self.*) {
             .{ Parse: kind } => kind.&.write_to(writer),
             .WriteFailed => _ = writer.write("XML render write failed"),
@@ -504,7 +515,8 @@ impl &RenderErrorKind : Formatable {
 
 impl &RenderError : Formatable {
     /// Writes a human-readable rendering error and byte offset.
-    pub fn write_to(writer: &mut Write) void {
+    pub fn write_fmt(spec: FormatSpec, writer: &mut Write) void {
+        _ = spec;
         self.kind.&.write_to(writer);
         _ = writer.write(" at byte ");
         self.offset.&.write_to(writer);
@@ -513,7 +525,8 @@ impl &RenderError : Formatable {
 
 impl &OwnedErrorKind : Formatable {
     /// Writes a human-readable owned-document error category.
-    pub fn write_to(writer: &mut Write) void {
+    pub fn write_fmt(spec: FormatSpec, writer: &mut Write) void {
+        _ = spec;
         match (self.*) {
             .{ Parse: kind } => kind.&.write_to(writer),
             .{ Validate: kind } => kind.&.write_to(writer),
@@ -525,7 +538,8 @@ impl &OwnedErrorKind : Formatable {
 
 impl &OwnedError : Formatable {
     /// Writes a human-readable owned-document error and byte offset.
-    pub fn write_to(writer: &mut Write) void {
+    pub fn write_fmt(spec: FormatSpec, writer: &mut Write) void {
+        _ = spec;
         self.kind.&.write_to(writer);
         _ = writer.write(" at byte ");
         self.offset.&.write_to(writer);

@@ -85,7 +85,7 @@ impl[T] &mut MappedReader[T] {
 
 // Whitespace-only text is ignorable in significant-event streams.
 fn is_ws_text(raw: &[u8]) bool {
-    for (byte: raw.iter()) {
+    for byte in raw.iter() {
         if (!(byte == b' ' or byte == b'\n' or byte == b'\r' or byte == b'\t')) {
             return false;
         }

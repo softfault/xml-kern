@@ -37,7 +37,7 @@ fn lift_parse(err: Error) ValidateError {
 
 // Text outside the root may only contain XML whitespace.
 fn is_ignorable_text(raw: &[u8]) bool {
-    for (byte: raw.iter()) {
+    for byte in raw.iter() {
         if (!(byte == b' ' or byte == b'\n' or byte == b'\r' or byte == b'\t')) {
             return false;
         }

@@ -27,7 +27,7 @@ fn lift_parse(err: Error) ExpectError {
 fn is_ignorable(event: Event) bool {
     match (event) {
         .{ Text: text } => {
-            for (byte: text.raw.iter()) {
+            for byte in text.raw.iter() {
                 if (!(byte == b' ' or byte == b'\n' or byte == b'\r' or byte == b'\t')) {
                     return false;
                 }

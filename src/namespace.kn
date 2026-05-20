@@ -15,7 +15,7 @@ use ..{
 // Returns the first namespace separator in a lexical XML name.
 fn colon_at(raw: &[u8]) ?usize {
     let mut i = 0usize;
-    for (byte: raw.iter()) {
+    for byte in raw.iter() {
         if (byte == b':') {
             return .{ Some: i };
         }
